@@ -1,4 +1,4 @@
-# Reset Journal · Demo
+# Reset Journal
 
 A trading journal you can try right in your browser. Log trades with chart screenshots and drawings, review your days, and see how well you follow your plan.
 
