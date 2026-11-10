@@ -432,6 +432,9 @@ input, select, textarea {
   font: 14px var(--font-body);
 }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-text); }
+/* iPhone: ô ngày/giờ có độ rộng riêng nên tràn ra ngoài ô; ép về đúng độ rộng cột và canh trái như các ô khác */
+input[type="date"], input[type="time"] { min-width: 0; max-width: 100%; min-height: 38px; -webkit-appearance: none; appearance: none; text-align: left; }
+.cols > label { min-width: 0; }
 textarea { resize: vertical; min-height: 64px; }
 select option { background: var(--field); color: var(--text); }
 .field-label { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
@@ -550,7 +553,7 @@ select option { background: var(--field); color: var(--text); }
 }
 
 /* =====================================================================
-   Dashboard mới (08/11/2026): bố cục theo ảnh mẫu,
+   Dashboard mới (08/11/2026): bố cục theo ảnh TradeZella Leo gửi,
    màu và font giữ branding Reset Journal.
    ===================================================================== */
 main { max-width: 1480px; }
@@ -872,7 +875,11 @@ button.pt-cell:hover, button.pt-cell:focus-visible { outline: 2px solid var(--mu
 .check-stats dd { margin: 2px 0 0; font: 600 16px var(--font-num); }
 @media (max-width: 1150px) { .tile-grid.two { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .check-stats { grid-template-columns: 1fr 1fr; } .check-foot { flex-wrap: wrap; } }
-@media (max-width: 900px) { .bottom-nav { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 900px) {
+  /* 6 mục như menu bên máy tính: Dashboard, Daily, Trades, Models, Accounts, Notebook */
+  .bottom-nav { grid-template-columns: repeat(6, minmax(0, 1fr)); padding-left: 4px; padding-right: 4px; }
+  .bottom-nav a { font-size: 10.5px; gap: 3px; min-width: 0; text-align: center; }
+}
 
 /* ---------- Hộp xác nhận + menu chuột phải (08/11) ---------- */
 dialog.ask { width: min(440px, calc(100vw - 32px)); padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--field); color: var(--text); }
@@ -1240,7 +1247,7 @@ dialog.img-view::backdrop { background: rgba(0, 0, 0, 0.75); }
 .img-view .iv-tip { margin: 0; padding: 0 14px 10px; font-size: 12px; }
 .shot img { cursor: zoom-in; }
 .mc-no-plain { display: inline-flex; align-items: center; gap: 3px; color: var(--loss-text); } .mc-no-plain svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; }
-/* Setup theo quy trình của chủ dự án + trang Review (10/11) */
+/* Setup theo quy trình của Leo + trang Review (10/11) */
 .setup-flow { margin: -4px 0 0; font-size: 12px; letter-spacing: .02em; }
 .pda-tf { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 .pda-tf .hint { font-size: 12px; }
@@ -1311,6 +1318,8 @@ dialog.img-view::backdrop { background: rgba(0, 0, 0, 0.75); }
 .rv-arrow[disabled] { opacity: .35; cursor: default; }
 .rv-head .segmented button { height: 34px; }
 .rv-label { min-width: 150px; font: 600 14px var(--font-head); }
+/* Chế độ All không có nút ‹ ›: nhãn nằm sát lề trái, không canh giữa */
+.rv-nav .rv-label:first-child { min-width: 0; text-align: left; }
 .rv-summary { padding: 18px 20px; gap: 0; }
 .rv-summary > div { padding: 0 20px; border-left: 1px solid var(--line); gap: 4px; }
 .rv-summary > div:first-child { padding-left: 0; border-left: 0; }
@@ -1350,6 +1359,11 @@ dialog.img-view::backdrop { background: rgba(0, 0, 0, 0.75); }
 .rv-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rv-winc { display: grid; grid-template-columns: 1fr 44px; gap: 10px; align-items: center; }
 .rv-winc b { font: 600 14px var(--font-num); text-align: right; }
+@media (max-width: 640px) {
+  /* 4 tab Breakdown: lưới 2 cột đều nhau, thẳng hàng */
+  .rv-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 8px; }
+  .rv-tabs button { padding: 0 4px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
 @media (max-width: 760px) {
   .rv-summary { grid-template-columns: 1fr 1fr; row-gap: 14px; }
   .rv-summary > div:nth-child(3) { padding-left: 0; border-left: 0; }
@@ -1502,4 +1516,3 @@ dialog.img-view.drawing .anno-svg .mk-h[data-h="ne"], dialog.img-view.drawing .a
 .lang-opt { display: flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 15px; color: var(--text); cursor: pointer; border-radius: 8px; }
 .lang-opt:hover { background: var(--surface); }
 .lang-opt input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
-.demo-banner { margin: 12px clamp(16px, 2.5vw, 32px) 0; padding: 10px 14px; border: 1px solid var(--accent); border-radius: 10px; background: rgba(20, 184, 166, 0.08); font-size: 14px; color: var(--text); }
