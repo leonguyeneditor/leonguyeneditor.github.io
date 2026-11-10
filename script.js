@@ -3087,13 +3087,6 @@ function showServerBanner() {
     tb.innerHTML = '<b>TEST COPY</b> · This is Claude’s test page. Nothing here is saved to your journal. Your real journal is <a href="http://localhost:3000">localhost:3000</a>.';
     document.querySelector('.main-col').prepend(tb);
   }
-  // Bản demo: một dải nhỏ nói rõ dữ liệu nằm ở đâu
-  if (isDemo && !document.getElementById('demo-banner')) {
-    const db = document.createElement('div');
-    db.id = 'demo-banner'; db.className = 'demo-banner'; db.setAttribute('role', 'note');
-    db.innerHTML = '<b>Demo</b> · Your journal is saved only in this browser. Nothing is sent online. Clearing browser data or using a private window starts fresh.';
-    document.querySelector('.main-col').prepend(db);
-  }
   let el = document.getElementById('server-banner');
   if (serverHasTrash) { el?.remove(); return; }
   if (el) return;
