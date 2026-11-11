@@ -1386,8 +1386,8 @@ function applySettings(st) {
   if (st.entry_m1) ENTRY_M1 = st.entry_m1;
   setSteps(st.steps?.length ? st.steps : defaultSteps());
   MODELS = st.models || [];
-  if (st.pda_tfs?.length) PDA_TFS = st.pda_tfs;
-  if (st.entry_tfs?.length) ENTRY_TFS = st.entry_tfs;
+  if (Array.isArray(st.pda_tfs)) PDA_TFS = st.pda_tfs;
+  if (Array.isArray(st.entry_tfs)) ENTRY_TFS = st.entry_tfs;
 }
 const currentLists = () => ({ confirmations: CONFIRMATIONS, mistakes: MISTAKES, emotions: EMOTIONS, dols: DOLS, sessions: SESSIONS, symbols: SYMBOLS });
 
@@ -1897,10 +1897,23 @@ function bindModelEditor(show) {
     const key = box.dataset.me; const cfg = ME_CFG[key];
     const paint = () => {
       const all = [...new Set([...cfg.list(), ...d[key]])];
-      box.innerHTML = all.map((v) => `<button type="button" class="chip ${d[key].includes(v) ? 'on' : ''}" aria-pressed="${d[key].includes(v)}" data-value="${esc(v)}">${esc(cfg.fixed ? cap1(v) : v)}</button>`).join('')
+      box.innerHTML = all.map((v) => `<span class="chip-wrap"><button type="button" class="chip ${d[key].includes(v) ? 'on' : ''}" aria-pressed="${d[key].includes(v)}" data-value="${esc(v)}">${esc(cfg.fixed ? cap1(v) : v)}</button>${cfg.fixed ? '' : `<button type="button" class="chip-x" data-remove="${esc(v)}" aria-label="Remove ${esc(v)} from the list" title="Remove from the list">×</button>`}</span>`).join('')
         + (cfg.fixed ? '' : `<input class="chip-add" maxlength="${cfg.tf ? 8 : 40}" placeholder="+ Add" aria-label="Add your own">`);
     };
-    box.addEventListener('click', (e) => {
+    box.addEventListener('click', async (e) => {
+      // Dấu × : xoá hẳn lựa chọn khỏi danh sách (lệnh và model đã dùng nó vẫn giữ giá trị cũ)
+      const x = e.target.closest('.chip-x');
+      if (x) {
+        const v = x.dataset.remove;
+        const ok = await askDialog({ title: `Remove ${esc(v)}?`, body: 'It will no longer show as an option. Trades and models that already use it keep it. You can add it again any time.', actions: [{ label: 'Remove', value: 'yes', danger: true }] });
+        if (!ok) return;
+        const next = cfg.list().filter((y) => y !== v);
+        cfg.set(next);
+        d[key] = d[key].filter((y) => y !== v);
+        api('/api/settings', { method: 'PUT', body: JSON.stringify({ [cfg.key]: next }) }).catch((ex) => show(`Not saved to your list: ${ex.message}`));
+        paint();
+        return;
+      }
       const b = e.target.closest('.chip'); if (!b) return;
       const v = b.dataset.value;
       d[key] = d[key].includes(v) ? d[key].filter((x) => x !== v) : [...d[key], v];

@@ -1555,3 +1555,10 @@ select:not([multiple]) {
 .model-editor .form-actions { justify-content: flex-end; }
 .m-recipe { margin: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-card.is-editing { border-color: var(--accent-text); }
+
+/* ---------- Dấu × xoá lựa chọn khỏi danh sách trong editor model (11/11) ---------- */
+.chip-wrap { position: relative; display: inline-flex; }
+.chip-x { position: absolute; top: -7px; right: -7px; width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--field); color: var(--muted); font: 600 14px/1 var(--font-body); display: grid; place-items: center; cursor: pointer; opacity: 0; transition: opacity .12s; z-index: 1; }
+.chip-wrap:hover .chip-x, .chip-x:focus-visible { opacity: 1; }
+.chip-x:hover { color: var(--loss-text); border-color: var(--loss-text); }
+@media (hover: none) { .chip-x { opacity: 1; } }
