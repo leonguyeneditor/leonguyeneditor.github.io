@@ -17,6 +17,7 @@
   // ---------- Từ điển: [English, Tiếng Việt, Español, Português, Bahasa Indonesia] ----------
   const ROWS = [
     // Khung chung, menu
+    ['Journal', 'Nhật ký', 'Diario', 'Diário', 'Jurnal'],
     ['Trading Journal', 'Nhật ký giao dịch', 'Diario de trading', 'Diário de trading', 'Jurnal trading'],
     ['+ New trade', '+ Lệnh mới', '+ Nueva operación', '+ Nova operação', '+ Transaksi baru'],
     ['New trade', 'Lệnh mới', 'Nueva operación', 'Nova operação', 'Transaksi baru'],
