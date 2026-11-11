@@ -1908,11 +1908,18 @@ function bindModelEditor(show) {
   const f = app.querySelector('.model-editor');
   if (!f || !modelDraft) return;
   const d = modelDraft;
+  // Số liệu của từng PDA từ mọi lệnh đã có kết quả (có model hay không đều tính), để chọn PDA cho model dựa trên số liệu
+  const pdaStat = (() => {
+    const closed = trades.filter((t) => notQuick(t) && outcomeOf(t) !== 'open');
+    const g = groupBy(closed, (t) => t.pdas || []); const m = new Map();
+    g.forEach((list, k) => { const s = groupStat(list); m.set(k, `${s.win == null ? '—' : `${s.win}%`} · ${s.n}`); });
+    return m;
+  })();
   f.querySelectorAll('[data-me]').forEach((box) => {
     const key = box.dataset.me; const cfg = ME_CFG[key];
     const paint = () => {
       const all = [...new Set([...cfg.list(), ...d[key]])];
-      box.innerHTML = all.map((v) => `<span class="chip-wrap"><button type="button" class="chip ${d[key].includes(v) ? 'on' : ''}" aria-pressed="${d[key].includes(v)}" data-value="${esc(v)}">${esc(cfg.fixed ? cap1(v) : v)}</button>${cfg.fixed ? '' : `<button type="button" class="chip-x" data-remove="${esc(v)}" aria-label="Remove ${esc(v)} from the list" title="Remove from the list">×</button>`}</span>`).join('')
+      box.innerHTML = all.map((v) => `<span class="chip-wrap"><button type="button" class="chip ${d[key].includes(v) ? 'on' : ''}" aria-pressed="${d[key].includes(v)}" data-value="${esc(v)}">${esc(cfg.fixed ? cap1(v) : v)}${key === 'pdas' && pdaStat.has(v) ? `<span class="chip-stat" title="Win % and number of trades with this PDA">${esc(pdaStat.get(v))}</span>` : ''}</button>${cfg.fixed ? '' : `<button type="button" class="chip-x" data-remove="${esc(v)}" aria-label="Remove ${esc(v)} from the list" title="Remove from the list">×</button>`}</span>`).join('')
         + (cfg.fixed ? '' : `<input class="chip-add" maxlength="${cfg.tf ? 8 : 40}" placeholder="+ Add" aria-label="Add your own">`);
     };
     // Xoá hẳn một lựa chọn khỏi danh sách (lệnh và model đã dùng nó vẫn giữ giá trị cũ). Dùng cho dấu × và chuột phải → Delete.
@@ -2044,6 +2051,23 @@ function renderModels() {
   const bestS = bestK ? groupStat(g.get(bestK)) : null;
   const bestLine = bestK && labels.length > 1 ? `<p class="rv-best">Best so far: <b>${esc(bestK)}</b> · ${pc(bestS.win)} win · ${bestS.n} trade${bestS.n === 1 ? '' : 's'} ${fewTag(bestS.n)}</p>` : '';
 
+  // Xếp hạng PDA (11/11): theo TÊN PDA, gộp mọi khung giờ, tính từ mọi lệnh đã có kết quả, có model hay không đều được
+  const pdaG = groupBy(rows, (t) => t.pdas || []); const pdaPG = groupBy(prows, (t) => t.pdas || []);
+  const pdaLabels = [...pdaG.keys()].sort((a, b) => { const A = groupStat(pdaG.get(a)); const B = groupStat(pdaG.get(b)); return (B.win ?? -1) - (A.win ?? -1) || B.n - A.n; });
+  const pdaBest = pdaLabels.length > 1 ? pdaLabels[0] : null;
+  const pdaCard = `<section class="tile rv-pda">
+      <header class="tile-head"><h3>Which PDA works best for you?</h3><button type="button" class="info-tip" data-tip="${esc('Counts every trade with a result, with or without a model, on any timeframe. A trade with 2 PDAs counts in both rows.\nTo see a PDA with its timeframe, open Breakdown → 2 · HTF zone.')}" aria-label="What is this?">${ICON.info}</button></header>
+      ${pdaLabels.length ? `${pdaBest ? `<p class="rv-best">Best so far: <b>${esc(pdaBest)}</b> · ${pc(groupStat(pdaG.get(pdaBest)).win)} win · ${groupStat(pdaG.get(pdaBest)).n} trade${groupStat(pdaG.get(pdaBest)).n === 1 ? '' : 's'} ${fewTag(groupStat(pdaG.get(pdaBest)).n)}</p>` : ''}
+      <div class="rv-rows">
+        <div class="rv-row head"><span></span><span>Win %</span><span class="num">Trades</span><span class="num">Avg R</span><span class="num">Net</span>${prev ? '<span class="num">vs prev</span>' : ''}</div>
+        ${pdaLabels.map((k) => { const s = groupStat(pdaG.get(k)); const p = pdaPG.has(k) ? groupStat(pdaPG.get(k)) : null; return `<div class="rv-row">
+          <span class="rv-name">${esc(k)} ${fewTag(s.n)}</span>
+          <span class="rv-winc">${bar(s.win)}<b>${pc(s.win)}</b></span>
+          <span class="num">${s.n}</span><span class="num ${tone(s.avgR)}">${rv(s.avgR)}</span><span class="num ${tone(s.net)}">${usd(s.net)}</span>
+          ${prev ? `<span class="num">${delta(s.win, p?.win) || '<span class="hint">—</span>'}</span>` : ''}</div>`; }).join('')}
+      </div>` : '<div class="tile-empty"><p>No trades with an HTF PDA ticked in this period. Tick the PDA in the Setup block when you log a trade, and add a result so it counts.</p></div>'}
+    </section>`;
+
   app.innerHTML = `
     <div class="page-head rv-head">
       <div><h1>Models &amp; Review</h1><p>Look back at a week or a month: which model, PDA and entry really work for you.</p></div>
@@ -2066,6 +2090,8 @@ function renderModels() {
       <div><small>Avg R</small><b class="${tone(all.avgR)}">${rv(all.avgR)}</b><span class="hint">${pall ? `prev ${rv(pall.avgR)}` : '&nbsp;'}</span></div>
       <div><small>Net</small><b class="${tone(all.net)}">${usd(all.net)}</b><span class="hint">${pall ? `prev ${usd(pall.net)}` : '&nbsp;'}</span></div>
     </section>
+
+    ${pdaCard}
 
     <h2 class="rv-h2">Models</h2>
     ${editingModel !== null && modelDraft ? modelEditorHTML() : ''}
