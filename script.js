@@ -33,7 +33,9 @@ let MAX_LOSSES = 2;
 let PDA_HTF = ['BPR', 'OB', 'FVG', 'BB'];
 let STRUCT_M15 = ['MSS', 'Trend aligned', 'Sweep'];
 let ENTRY_M1 = ['Sweep', 'MSS', 'FVG', 'IFVG', 'CISD', 'OB', 'Displacement'];
-let MODELS = []; // [{ id, name, items: ["htf:FVG", "m15:MSS", "m1:Sweep"] }]
+let MODELS = []; // [{ id, name, items: [...cũ], recipe?: { dols, pdas, pda_tf, structure, confirmations, entry_tf } }]
+let PDA_TFS = ['H4', 'H1'];    // khung giờ của vùng HTF PDA (tự thêm được ở editor model, 11/11)
+let ENTRY_TFS = ['M5', 'M1'];  // khung giờ vào lệnh
 // Các bước chủ dự án tự đặt (09/11): tên, khung giờ dùng được, thành phần. Lưu ở settings "steps".
 // Id htf/m15/m1 giữ từ bản cũ để lệnh đã tick vẫn khớp. Khung giờ đã chọn lưu trong seen dạng "bước:@H1".
 let STEPS = [];
@@ -1384,6 +1386,8 @@ function applySettings(st) {
   if (st.entry_m1) ENTRY_M1 = st.entry_m1;
   setSteps(st.steps?.length ? st.steps : defaultSteps());
   MODELS = st.models || [];
+  if (st.pda_tfs?.length) PDA_TFS = st.pda_tfs;
+  if (st.entry_tfs?.length) ENTRY_TFS = st.entry_tfs;
 }
 const currentLists = () => ({ confirmations: CONFIRMATIONS, mistakes: MISTAKES, emotions: EMOTIONS, dols: DOLS, sessions: SESSIONS, symbols: SYMBOLS });
 
@@ -1850,6 +1854,77 @@ function groupStat(rows) {
     avgR: r.length ? r.reduce((a, t) => a + t.result_r, 0) / r.length : null,
     net: rows.some((t) => t.pnl_usd != null) ? rows.reduce((a, t) => a + (t.pnl_usd || 0), 0) : null };
 }
+// ---------- Editor model (11/11): model = công thức theo trình tự Daily → HTF → Structure → Entry ----------
+// chủ dự án tick những gì thuộc model, tự thêm PDA / khung giờ mới bằng "+ Add". Chọn model ở lệnh mới thì form tự điền theo công thức.
+let modelDraft = null; // bản nháp đang sửa: { name, dols, pdas, pda_tf, structure, confirmations, entry_tf }
+const RECIPE_KEYS = ['dols', 'pdas', 'pda_tf', 'structure', 'confirmations', 'entry_tf'];
+const blankRecipe = () => ({ dols: [], pdas: [], pda_tf: [], structure: [], confirmations: [], entry_tf: [] });
+const ME_CFG = {
+  dols: { list: () => DOLS, set: (a) => { DOLS = a; }, key: 'dols' },
+  pdas: { list: () => PDAS, set: (a) => { PDAS = a; }, key: 'pdas' },
+  pda_tf: { list: () => PDA_TFS, set: (a) => { PDA_TFS = a; }, key: 'pda_tfs', tf: true },
+  structure: { list: () => ['bullish', 'bearish', 'sideways'], fixed: true },
+  confirmations: { list: () => CONFIRMATIONS, set: (a) => { CONFIRMATIONS = a; }, key: 'confirmations' },
+  entry_tf: { list: () => ENTRY_TFS, set: (a) => { ENTRY_TFS = a; }, key: 'entry_tfs', tf: true },
+};
+// Một dòng tóm tắt công thức, VD "FVG, OB · H4 + H1 → Bullish → MSS · M1"
+function recipeLine(r) {
+  if (!r) return '';
+  const tf = (a) => (a?.length ? ` · ${a.join(' + ')}` : '');
+  return [(r.dols || []).join(', '), r.pdas?.length ? `${r.pdas.join(', ')}${tf(r.pda_tf)}` : '',
+    (r.structure || []).map(cap1).join(' / '), r.confirmations?.length ? `${r.confirmations.join(', ')}${tf(r.entry_tf)}` : ''].filter(Boolean).join(' → ');
+}
+function modelEditorHTML() {
+  const g = (key) => `<div class="chips" data-me="${key}"></div>`;
+  const step = (n, rows) => `<div class="su-step"><span class="su-num">${n}</span><div class="su-body">${rows.map(([label, key]) => `<div class="su-row"><span class="su-label">${label}</span>${g(key)}</div>`).join('')}</div></div>`;
+  return `<form class="tile model-editor" data-model-form="${editingModel}" autocomplete="off">
+    <header class="tile-head"><h3>${editingModel === 'new' ? 'New model' : 'Edit model'}</h3></header>
+    <label>Model name <input name="name" maxlength="40" value="${esc(modelDraft.name)}" placeholder="e.g. Model 2022"></label>
+    <p class="hint">Pick what belongs to this model, in the order you trade it. When you choose the model on a new trade, these are filled in for you. You can still change them on each trade.</p>
+    ${step(1, [['Daily target', 'dols']])}
+    ${step(2, [['HTF PDA', 'pdas'], ['Timeframe', 'pda_tf']])}
+    ${step(3, [['Structure', 'structure']])}
+    ${step(4, [['Entry signal', 'confirmations'], ['Entry on', 'entry_tf']])}
+    <p class="error" role="alert" hidden></p>
+    <div class="form-actions"><button type="button" class="btn" data-model-cancel>Cancel</button><button type="submit" class="btn btn-primary">Save model</button></div>
+  </form>`;
+}
+function bindModelEditor(show) {
+  const f = app.querySelector('.model-editor');
+  if (!f || !modelDraft) return;
+  const d = modelDraft;
+  f.querySelectorAll('[data-me]').forEach((box) => {
+    const key = box.dataset.me; const cfg = ME_CFG[key];
+    const paint = () => {
+      const all = [...new Set([...cfg.list(), ...d[key]])];
+      box.innerHTML = all.map((v) => `<button type="button" class="chip ${d[key].includes(v) ? 'on' : ''}" aria-pressed="${d[key].includes(v)}" data-value="${esc(v)}">${esc(cfg.fixed ? cap1(v) : v)}</button>`).join('')
+        + (cfg.fixed ? '' : `<input class="chip-add" maxlength="${cfg.tf ? 8 : 40}" placeholder="+ Add" aria-label="Add your own">`);
+    };
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('.chip'); if (!b) return;
+      const v = b.dataset.value;
+      d[key] = d[key].includes(v) ? d[key].filter((x) => x !== v) : [...d[key], v];
+      paint();
+    });
+    // "+ Add": chọn luôn và nhớ vào danh sách chung (Settings) để lần sau còn
+    const addFrom = (input, refocus) => {
+      const v = input.value.trim().slice(0, cfg.tf ? 8 : 40);
+      if (!v || v.includes(':')) return;
+      const same = cfg.list().find((x) => x.toLowerCase() === v.toLowerCase()) || v;
+      if (!d[key].includes(same)) d[key].push(same);
+      if (!cfg.list().some((x) => x.toLowerCase() === same.toLowerCase())) {
+        const next = [...cfg.list(), same]; cfg.set(next);
+        api('/api/settings', { method: 'PUT', body: JSON.stringify({ [cfg.key]: next }) }).catch((ex) => show(`Not saved to your list: ${ex.message}`));
+      }
+      paint();
+      if (refocus) box.querySelector('.chip-add')?.focus();
+    };
+    box.addEventListener('keydown', (e) => { if (e.target.classList.contains('chip-add') && e.key === 'Enter') { e.preventDefault(); addFrom(e.target, true); } });
+    box.addEventListener('focusout', (e) => { if (e.target.classList.contains('chip-add')) addFrom(e.target, false); });
+    paint();
+  });
+}
+
 // ---------- Models + Review (10/11) ----------
 // Model chỉ là tên để nhóm lệnh. Trang này để review cuối tuần / cuối tháng:
 // Win % theo model, theo M15 có thuận HTF không, theo PDA, khung giờ PDA, khung vào lệnh, Entry Confirmation, Daily target.
@@ -1900,11 +1975,10 @@ function renderModels() {
     ...(mg.has('0') ? [{ id: 0, name: 'No model', none: true }] : [])];
   const cardHTML = (c) => {
     const s = groupStat(mg.get(String(c.id)) || []); const p = pmg.has(String(c.id)) ? groupStat(pmg.get(String(c.id))) : null;
-    if (editingModel === c.id) {
-      return `<form class="m-card editing" data-model-form="${c.id}"><input name="name" maxlength="40" value="${esc(c.name)}" aria-label="Model name"><div class="m-card-actions"><button type="button" class="btn btn-sm" data-model-cancel>Cancel</button><button class="btn btn-primary btn-sm">Save</button></div></form>`;
-    }
-    return `<div class="m-card ${c.none ? 'none' : ''}">
+    const recipe = recipeLine(MODELS.find((m) => m.id === c.id)?.recipe);
+    return `<div class="m-card ${c.none ? 'none' : ''} ${editingModel === c.id ? 'is-editing' : ''}">
       <header><b title="${esc(c.name)}">${esc(c.name)}</b>${c.none || c.gone ? '' : `<button type="button" class="m-more" data-model-menu="${c.id}" aria-label="Options for ${esc(c.name)}">⋯</button>`}</header>
+      ${recipe ? `<p class="m-recipe" title="${esc(recipe)}">${esc(recipe)}</p>` : ''}
       <div class="m-win"><span>${pc(s.win)}</span><small>win</small></div>
       ${bar(s.win)}
       <p class="m-line">${s.n} trade${s.n === 1 ? '' : 's'} · <span class="${tone(s.avgR)}">${rv(s.avgR)}</span> · <span class="${tone(s.net)}">${usd(s.net)}</span></p>
@@ -1914,7 +1988,7 @@ function renderModels() {
 
   // Breakdown: một khối, nhiều tab
   // 4 tab đi đúng thứ tự chủ dự án xem chart (10/11). PDA đi chung khung giờ, tín hiệu vào lệnh đi chung khung vào lệnh.
-  const tfOfZone = (t) => (t.pda_tf?.length === 2 ? 'H4 + H1' : t.pda_tf?.[0] || '');
+  const tfOfZone = (t) => (t.pda_tf || []).join(' + ');
   const TABS = [
     ['dol', '1 · Daily target', 'Which daily target does price really reach for you?', 'Daily target = where you expected price to go (PDH, PDL…). A trade with 2 targets counts in both rows.', (t) => t.dols || []],
     ['zone', '2 · HTF zone', 'Which HTF zone works best for you?', 'Each row is a PDA together with its timeframe, for example “FVG · H4”. “H4 + H1” = the zone was on both timeframes at once (confluence).', (t) => (t.pdas || []).map((p) => (tfOfZone(t) ? `${p} · ${tfOfZone(t)}` : p))],
@@ -1962,10 +2036,10 @@ function renderModels() {
     </section>
 
     <h2 class="rv-h2">Models</h2>
+    ${editingModel !== null && modelDraft ? modelEditorHTML() : ''}
     <div class="m-cards">
       ${cards.map(cardHTML).join('')}
-      ${editingModel === 'new' ? `<form class="m-card editing" data-model-form="new"><input name="name" maxlength="40" placeholder="e.g. Model 2022" aria-label="New model name"><div class="m-card-actions"><button type="button" class="btn btn-sm" data-model-cancel>Cancel</button><button class="btn btn-primary btn-sm">Add</button></div></form>`
-        : '<button type="button" class="m-card m-new" data-model-new><span>+</span>New model</button>'}
+      ${editingModel === null ? '<button type="button" class="m-card m-new" data-model-new><span>+</span>New model</button>' : ''}
     </div>
     <p class="error rv-error" role="alert" hidden></p>
 
@@ -1981,8 +2055,9 @@ function renderModels() {
   app.querySelectorAll('[data-rv-tab]').forEach((b) => b.addEventListener('click', () => { reviewTab = b.dataset.rvTab; renderModels(); }));
   const err = app.querySelector('.rv-error');
   const show = (m) => { err.textContent = m; err.hidden = false; };
-  app.querySelector('[data-model-new]')?.addEventListener('click', () => { editingModel = 'new'; renderModels(); app.querySelector('[data-model-form="new"] input')?.focus(); });
-  app.querySelector('[data-model-cancel]')?.addEventListener('click', () => { editingModel = null; renderModels(); });
+  app.querySelector('[data-model-new]')?.addEventListener('click', () => { editingModel = 'new'; modelDraft = { name: '', ...blankRecipe() }; renderModels(); app.querySelector('.model-editor')?.scrollIntoView({ block: 'center' }); app.querySelector('.model-editor input[name="name"]')?.focus(); });
+  app.querySelector('[data-model-cancel]')?.addEventListener('click', () => { editingModel = null; modelDraft = null; renderModels(); });
+  bindModelEditor(show);
   const delModel = async (m) => {
     const used = allTrades.filter((t) => t.model_id === m.id).length;
     const ok = await askDialog({ title: `Delete ${esc(m.name)}?`, body: used ? `${used} trade${used === 1 ? '' : 's'} used this model. They keep the name, marked “deleted”.` : 'No trades use this model yet.', actions: [{ label: 'Delete model', value: 'yes', danger: true }] });
@@ -1996,8 +2071,8 @@ function renderModels() {
     ev.stopPropagation(); // không để cú bấm này đóng luôn menu vừa mở
     const m = MODELS.find((x) => x.id === Number(b.dataset.modelMenu));
     const r = b.getBoundingClientRect();
-    showMenu(r.left, r.bottom + 4, [{ act: 'rename', label: 'Rename' }, { act: 'delete', label: 'Delete', danger: true }], (act) => {
-      if (act === 'rename') { editingModel = m.id; renderModels(); app.querySelector(`[data-model-form="${m.id}"] input`)?.select(); }
+    showMenu(r.left, r.bottom + 4, [{ act: 'edit', label: 'Edit' }, { act: 'delete', label: 'Delete', danger: true }], (act) => {
+      if (act === 'edit') { editingModel = m.id; modelDraft = { name: m.name, ...blankRecipe(), ...JSON.parse(JSON.stringify(m.recipe || {})) }; renderModels(); app.querySelector('.model-editor')?.scrollIntoView({ block: 'center' }); app.querySelector('.model-editor input[name="name"]')?.select(); }
       if (act === 'delete') delModel(m);
     });
   }));
@@ -2008,10 +2083,14 @@ function renderModels() {
     const id = isNew ? Math.max(0, ...MODELS.map((m) => m.id), ...allTrades.map((t) => t.model_id || 0)) + 1 : Number(f.dataset.modelForm);
     if (!name) return show('Type a model name, like Model 2022.');
     if (MODELS.some((m) => m.name.toLowerCase() === name.toLowerCase() && m.id !== id)) return show('You already have a model with this name.');
-    const next = isNew ? [...MODELS, { id, name, items: [] }] : MODELS.map((m) => (m.id === id ? { ...m, name } : m));
+    const recipe = {};
+    for (const k of RECIPE_KEYS) { const arr = [...(modelDraft?.[k] || [])]; if (ME_CFG[k].tf) arr.sort((a, b) => ME_CFG[k].list().indexOf(a) - ME_CFG[k].list().indexOf(b)); if (arr.length) recipe[k] = arr; }
+    const hasRecipe = Object.keys(recipe).length > 0;
+    const next = isNew ? [...MODELS, { id, name, items: [], ...(hasRecipe ? { recipe } : {}) }]
+      : MODELS.map((m) => { if (m.id !== id) return m; const { recipe: _old, ...rest } = m; return { ...rest, name, ...(hasRecipe ? { recipe } : {}) }; });
     try {
       await api('/api/settings', { method: 'PUT', body: JSON.stringify({ models: next }) });
-      MODELS = next; editingModel = null; toast(`Saved ${name}`); renderModels();
+      MODELS = next; editingModel = null; modelDraft = null; toast(`Saved ${name}`); renderModels();
     } catch (ex) { show(ex.message); }
   }));
 }
@@ -2112,14 +2191,14 @@ function renderForm(existing, presetDate) {
           <div class="su-row"><span class="su-label">HTF Bias</span>${toggle('htf_bias', ['bullish', 'Bullish'], ['bearish', 'Bearish'], ['undecided', 'Undecided'])}</div>
           <div class="su-row"><span class="su-label">HTF PDA</span><div class="su-ctl">
             <div class="chips" data-chips="pdas"></div>
-            <div class="pda-tf"><span class="su-sub">on</span><div class="toggle" data-multi="pda_tf" role="group" aria-label="PDA timeframe">${['H4', 'H1'].map((v) => `<button type="button" data-value="${v}">${v}</button>`).join('')}</div><span class="hint">Both = H4 and H1 line up</span></div>
+            <div class="pda-tf"><span class="su-sub">on</span><div class="toggle" data-multi="pda_tf" role="group" aria-label="PDA timeframe">${[...new Set([...PDA_TFS, ...(t.pda_tf || [])])].map((v) => `<button type="button" data-value="${esc(v)}">${esc(v)}</button>`).join('')}</div><span class="hint">Pick more than one if they line up</span></div>
           </div></div>
         </div></div>
         <div class="su-step"><span class="su-num">3</span><div class="su-body">
           <div class="su-row"><span class="su-label">Structure</span><div class="su-ctl su-inline">${toggle('m15_structure', ['bullish', 'Bullish'], ['bearish', 'Bearish'], ['sideways', 'Sideways'])}<span class="aligned-line" id="aligned" aria-live="polite"></span></div></div>
         </div></div>
         <div class="su-step"><span class="su-num">4</span><div class="su-body">
-          <div class="su-row"><span class="su-label">Entry on</span>${toggle('entry_tf', ['M5', 'M5'], ['M1', 'M1'])}</div>
+          <div class="su-row"><span class="su-label">Entry on</span>${toggle('entry_tf', ...[...new Set([...ENTRY_TFS, ...(t.entry_tf ? [t.entry_tf] : [])])].map((v) => [esc(v), esc(v)]))}</div>
           <div class="su-row"><span class="su-label">Confirmation</span><div class="chips" data-chips="confirmations"></div></div>
         </div></div>
         <div class="su-step su-extra"><span class="su-num" aria-hidden="true"></span><div class="su-body">
@@ -2203,6 +2282,7 @@ function renderForm(existing, presetDate) {
       b.classList.toggle('on', b.dataset.value === state[key]);
       b.setAttribute('aria-pressed', b.dataset.value === state[key]);
     });
+    box.addEventListener('rj-repaint', paint); // chọn model thì form tự điền rồi vẽ lại
     box.addEventListener('click', (e) => {
       const b = e.target.closest('button'); if (!b) return;
       state[key] = state[key] === b.dataset.value ? null : b.dataset.value;
@@ -2216,6 +2296,7 @@ function renderForm(existing, presetDate) {
   form.querySelectorAll('[data-multi]').forEach((box) => {
     const key = box.dataset.multi;
     const paint = () => box.querySelectorAll('button').forEach((b) => { const on = state[key].includes(b.dataset.value); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+    box.addEventListener('rj-repaint', paint);
     box.addEventListener('click', (e) => {
       const b = e.target.closest('button'); if (!b) return;
       const v = b.dataset.value;
@@ -2244,6 +2325,18 @@ function renderForm(existing, presetDate) {
     const id = Number(form.model_id.value) || null;
     const m = MODELS.find((x) => x.id === id);
     state.model = id ? { id, name: m ? m.name : t.model_name, items: [] } : null;
+    // Model có công thức (11/11): điền sẵn các ô Setup theo công thức. Mỗi lệnh vẫn sửa được.
+    const r = m?.recipe;
+    if (!r) return;
+    if (r.dols?.length) state.dols = [...r.dols];
+    if (r.pdas?.length) state.pdas = [...r.pdas];
+    if (r.pda_tf?.length) state.pda_tf = [...r.pda_tf];
+    if (r.structure?.length === 1) state.m15_structure = r.structure[0]; // nhiều lựa chọn thì để chủ dự án tự chọn từng lệnh
+    if (r.confirmations?.length) state.confirmations = [...r.confirmations];
+    if (r.entry_tf?.length === 1) state.entry_tf = r.entry_tf[0];
+    form.querySelectorAll('[data-toggle], [data-multi], [data-chips]').forEach((b) => b.dispatchEvent(new Event('rj-repaint')));
+    syncAligned();
+    toast(`Filled in from ${m.name}`);
   });
   form.querySelector('#manage-models').addEventListener('click', async (e) => {
     e.preventDefault();
@@ -2270,6 +2363,7 @@ function renderForm(existing, presetDate) {
       box.innerHTML = all.map((v) => `<button type="button" class="chip ${state[key].includes(v) ? 'on' : ''} ${key === 'mistakes' ? 'bad' : ''}" aria-pressed="${state[key].includes(v)}" data-value="${esc(v)}">${esc(v)}</button>`).join('')
         + '<input class="chip-add" placeholder="+ Add" aria-label="Add your own">';
     };
+    box.addEventListener('rj-repaint', paint);
     box.addEventListener('click', (e) => {
       const b = e.target.closest('.chip'); if (!b) return;
       const v = b.dataset.value;

@@ -177,9 +177,9 @@
     t.model_checks = mItems.filter((x) => seen.includes(x));
     t.htf_tf = (seen.find((x) => x.startsWith('htf:@')) || '').slice(5) || null;
     t.pdas = list(body.pdas);
-    t.pda_tf = list(body.pda_tf).filter((x) => ['H4', 'H1'].includes(x));
+    t.pda_tf = list(body.pda_tf).filter((x) => x.length <= 8 && !x.includes(':')); // khung giờ tuỳ chọn
     t.m15_structure = ['bullish', 'bearish', 'sideways'].includes(body.m15_structure) ? body.m15_structure : null;
-    t.entry_tf = ['M5', 'M1'].includes(body.entry_tf) ? body.entry_tf : null;
+    t.entry_tf = typeof body.entry_tf === 'string' && body.entry_tf.trim() && body.entry_tf.trim().length <= 8 && !body.entry_tf.includes(':') ? body.entry_tf.trim() : null;
     t.quick = body.quick ? 1 : 0;
     const tc = body.trade_count === '' || body.trade_count == null ? null : Number(body.trade_count);
     if (tc !== null && !(Number.isInteger(tc) && tc >= 1 && tc <= 100)) bad('Trades must be a whole number from 1 to 100');
@@ -231,7 +231,7 @@
     max_losses: (v) => (Number.isInteger(v) && v >= 1 && v <= 10 ? v : null),
     confirmations: listOf, mistakes: listOf, emotions: listOf, dols: listOf, sessions: listOf, symbols: listOf, pdas: listOf,
     checklist: (v) => (Array.isArray(v) ? [...new Set(v.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim().slice(0, 80)))].slice(0, 20) : null),
-    pda_htf: listOf, struct_m15: listOf, entry_m1: listOf,
+    pda_htf: listOf, struct_m15: listOf, entry_m1: listOf, pda_tfs: listOf, entry_tfs: listOf,
     steps: (v) => {
       if (!Array.isArray(v) || !v.length || v.length > 5) return null;
       const out = []; const ids = new Set();
@@ -254,7 +254,16 @@
         const name = typeof m?.name === 'string' ? m.name.trim().slice(0, 40) : '';
         const items = listOf(m?.items ?? []);
         if (!Number.isInteger(id) || id < 1 || !name || !items) return null;
-        out.push({ id, name, items: items.filter((x) => MODEL_ITEM_RE.test(x)).slice(0, 20) });
+        let recipe;
+        if (m?.recipe && typeof m.recipe === 'object') {
+          const rl = (k) => (listOf(m.recipe[k] ?? []) || []).filter((x) => !x.includes(':')).slice(0, 20);
+          const r = { dols: rl('dols'), pdas: rl('pdas'), pda_tf: rl('pda_tf').map((x) => x.slice(0, 8)),
+            structure: rl('structure').filter((x) => ['bullish', 'bearish', 'sideways'].includes(x)),
+            confirmations: rl('confirmations'), entry_tf: rl('entry_tf').map((x) => x.slice(0, 8)) };
+          if (Object.values(r).some((a) => a.length)) recipe = r;
+        }
+        const good = items.filter((x) => MODEL_ITEM_RE.test(x)).slice(0, 20);
+        out.push(recipe ? { id, name, items: good, recipe } : { id, name, items: good });
       }
       return out;
     },

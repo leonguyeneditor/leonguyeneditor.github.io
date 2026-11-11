@@ -1545,3 +1545,13 @@ select:not([multiple]) {
 /* ---------- Settings: tiêu đề khối cùng kiểu với tiêu đề thẻ ở Dashboard/Accounts (11/11) ----------
    Trước đây dùng Montserrat 16px (font rộng) nên chữ trông "bè" và lệch so với các trang khác. */
 .set-block h3 { font: 600 14px var(--font-body); letter-spacing: normal; color: var(--text); }
+
+/* ---------- Editor model (11/11): công thức theo trình tự Daily → HTF → Structure → Entry ---------- */
+.model-editor { display: grid; gap: 14px; margin: 0 0 16px; max-width: 760px; }
+.model-editor > label { max-width: 360px; }
+.model-editor .chips { gap: 8px; }
+.model-editor .chip { height: 34px; padding: 0 14px; display: inline-flex; align-items: center; }
+.model-editor .chip-add { height: 34px; width: 110px; padding: 0 12px; }
+.model-editor .form-actions { justify-content: flex-end; }
+.m-recipe { margin: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-card.is-editing { border-color: var(--accent-text); }
