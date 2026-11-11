@@ -1564,8 +1564,6 @@ select:not([multiple]) {
 @media (hover: none) { .chip-x { opacity: 1; } }
 
 /* ---------- Xếp hạng PDA (11/11) + số liệu nhỏ trên chip PDA trong editor model ---------- */
-.rv-pda { margin: 12px 0 0; }
-.rv-pda .rv-best { margin: 0 0 10px; }
 .chip-stat { margin-left: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .chip.on .chip-stat { color: inherit; opacity: .75; }
 
@@ -1574,10 +1572,6 @@ select:not([multiple]) {
 .rv-tabs { gap: 20px; }
 .rv-tabs button { padding: 0; }
 @media (max-width: 640px) { .rv-tabs { gap: 0 16px; } }
-/* Thẻ xếp hạng PDA: nút chuyển nằm bên phải tiêu đề, cùng cỡ với nút Week/Month/All */
-.rv-pda .tile-head { flex-wrap: wrap; gap: 6px 8px; }
-.rv-pda .segmented.pda-view { display: inline-flex; align-items: center; gap: 4px; height: 38px; padding: 3px; margin: 0 0 0 auto; }
-.rv-pda .segmented.pda-view button { height: 30px; padding: 0 14px; display: inline-flex; align-items: center; }
 /* Thẻ model: dòng công thức luôn chiếm chỗ để Win % của các thẻ nằm song song */
 .m-recipe { min-height: 16px; line-height: 16px; }
 /* Dòng trong bảng xếp hạng/Breakdown sát lề, thẳng với tiêu đề (trước đây đệm 4px hai bên) */
