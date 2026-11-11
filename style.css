@@ -1576,3 +1576,6 @@ select:not([multiple]) {
 .m-recipe { min-height: 16px; line-height: 16px; }
 /* Dòng trong bảng xếp hạng/Breakdown sát lề, thẳng với tiêu đề (trước đây đệm 4px hai bên) */
 .rv-row { padding-left: 0; padding-right: 0; }
+
+/* Settings → Time zone: danh sách chọn 5 múi giờ, cao bằng các nút khác (34px), thẳng lề với chữ phía trên */
+.tz-select { display: block; width: 100%; max-width: 320px; height: 38px; margin: 12px 0; }

@@ -86,12 +86,30 @@ let period = 'week'; // week | month | all
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Ngày giờ theo New York (giờ của thị trường), không theo giờ máy
 const NY = 'America/New_York';
-// Settings → Time zone: 'ny' (mặc định) hoặc 'local' (giờ của máy). Lưu theo trình duyệt, khoá rj-tz. Lệnh đã lưu không bị đổi ngày.
-const tzMode = () => { try { return localStorage.getItem('rj-tz') === 'local' ? 'local' : 'ny'; } catch { return 'ny'; } };
-// Tên múi giờ của máy để hiện trên nút (VD "Vietnam time"); không rõ thì dùng tên thành phố
-const tzLocalCity = () => { try { const z = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; return /^Asia\/(Ho_Chi_Minh|Saigon)$/.test(z) ? 'Vietnam' : (z.split('/').pop().replace(/_/g, ' ') || 'Local'); } catch { return 'Local'; } };
-const tzShort = () => (tzMode() === 'ny' ? 'NY' : (tzLocalCity() === 'Vietnam' ? 'VN' : 'local'));
-const tzOpt = () => (tzMode() === 'local' ? {} : { timeZone: NY });
+// Settings → Time zone: 5 múi giờ ứng với 5 ngôn ngữ (id IANA, tên thành phố, viết tắt). Lưu theo trình duyệt, khoá rj-tz. Lệnh đã lưu không bị đổi ngày.
+const TZS = [
+  ['America/New_York', 'New York', 'NY'], ['Asia/Ho_Chi_Minh', 'Ho Chi Minh', 'VN'], ['Europe/Madrid', 'Madrid', 'MAD'],
+  ['America/Sao_Paulo', 'São Paulo', 'SP'], ['Asia/Jakarta', 'Jakarta', 'JKT'],
+];
+const tzId = () => {
+  let v = null; try { v = localStorage.getItem('rj-tz'); } catch { /* bỏ qua */ }
+  if (v === 'local') { // giá trị cũ "My computer": quy về múi giờ máy nếu có trong danh sách, không thì Ho Chi Minh
+    try { const z = Intl.DateTimeFormat().resolvedOptions().timeZone; if (TZS.some((t) => t[0] === z)) return z; } catch { /* bỏ qua */ }
+    return 'Asia/Ho_Chi_Minh';
+  }
+  return TZS.some((t) => t[0] === v) ? v : NY;
+};
+const tzRow = () => TZS.find((t) => t[0] === tzId()) || TZS[0];
+const tzCity = () => tzRow()[1];
+const tzShort = () => tzRow()[2];
+// "(UTC-5)" hoặc "(UTC+5:30)": tính theo ngày hôm nay nên tự đổi theo giờ mùa hè
+const tzOffset = (id) => {
+  try {
+    const m = /GMT([+-])(\d{1,2})(?::(\d{2}))?/.exec(new Date().toLocaleString('en-US', { timeZone: id, timeZoneName: 'longOffset' }));
+    return m ? `(UTC${m[1]}${+m[2]}${m[3] && m[3] !== '00' ? ':' + m[3] : ''})` : '(UTC)';
+  } catch { return '(UTC)'; }
+};
+const tzOpt = () => ({ timeZone: tzId() });
 const todayStr = () => new Date().toLocaleDateString('sv-SE', tzOpt()); // YYYY-MM-DD
 const nowTime = () => new Date().toLocaleTimeString('en-GB', { ...tzOpt(), hour: '2-digit', minute: '2-digit', hour12: false });
 const cap1 = (str) => str.charAt(0).toUpperCase() + str.slice(1); // "tháng 11 năm 2026" → "Tháng 11 năm 2026"
@@ -1021,7 +1039,7 @@ function renderDaily() {
     <div class="dash-top">
       <div>
         <h1>Daily Journal</h1>
-        <p class="hint">${days.length} day${days.length === 1 ? '' : 's'} · ${esc(scopeLabel())} · ${tzMode() === 'ny' ? 'New York' : 'your'} dates</p>
+        <p class="hint">${days.length} day${days.length === 1 ? '' : 's'} · ${esc(scopeLabel())} · ${tzCity()} dates</p>
       </div>
       <div class="dash-controls">
         <button type="button" class="btn btn-soft" data-all="close">Collapse all</button>
@@ -1443,10 +1461,9 @@ async function renderSettings() {
     <section class="tile set-block">
       <h3>Time zone</h3>
       <p class="hint">Decides what counts as "today" on the calendar and the default time for a new trade. Saved trades keep their dates.</p>
-      <div class="toggle" role="group" aria-label="Time zone">
-        ${[['ny', 'New York time'], ['local', `${tzLocalCity()} time`]].map(([v, l]) =>
-          `<button type="button" data-tz-pref="${v}" class="${tzMode() === v ? 'on' : ''}" aria-pressed="${tzMode() === v}">${l}</button>`).join('')}
-      </div>
+      <select class="tz-select" data-tz-select aria-label="Time zone">
+        ${TZS.map(([id, city]) => `<option value="${id}" ${tzId() === id ? 'selected' : ''} data-no-i18n>${tzOffset(id)} ${city}</option>`).join('')}
+      </select>
       <p class="hint"><span>Today</span>: <b data-no-i18n>${esc(longDate(todayStr()))}</b></p>
     </section>
 
@@ -1479,10 +1496,10 @@ async function renderSettings() {
   `;
 
   app.querySelectorAll('input[name="lang"]').forEach((r) => r.addEventListener('change', () => window.I18N?.set(r.value)));
-  app.querySelectorAll('[data-tz-pref]').forEach((b) => b.addEventListener('click', () => {
-    try { localStorage.setItem('rj-tz', b.dataset.tzPref); } catch { /* bỏ qua */ }
+  app.querySelector('[data-tz-select]')?.addEventListener('change', (e) => {
+    try { localStorage.setItem('rj-tz', e.target.value); } catch { /* bỏ qua */ }
     location.reload(); // tải lại để lịch, ngày mặc định và các tháng đang xem dùng múi giờ mới
-  }));
+  });
   app.querySelectorAll('[data-theme-pref]').forEach((b) => b.addEventListener('click', () => { setTheme(b.dataset.themePref); renderSettings(); }));
   const item = (v) => { const [kind, ...rest] = v.split('|'); return { kind, id: rest.join('|') }; };
   const restore = async (items) => {
@@ -3505,7 +3522,7 @@ function nbEditorHTML() {
   if (nbSel.kind === 'day') {
     const d = nbSel.date;
     return `
-      <div class="nb-meta"><span>Day note · ${tzMode() === 'ny' ? 'New York date' : 'your date'}</span><span class="saved" id="nb-saved" role="status"></span></div>
+      <div class="nb-meta"><span>Day note · ${tzCity()} date</span><span class="saved" id="nb-saved" role="status"></span></div>
       <h2 class="nb-day-title">${longDate(d)}</h2>
       ${nbDayStats(d)}
       <label class="nb-label" for="nb-day-text">Note</label>
