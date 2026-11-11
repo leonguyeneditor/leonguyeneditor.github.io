@@ -895,7 +895,7 @@ function dayTradesHTML(rows) {
         <small>${esc(t.model_name || t.setup_name || t.confirmations.join(' + ') || accName(t) || '')}</small>
       </a>
       ${resultPill(t)}
-      <a class="btn btn-soft btn-sm" href="#/trade/${t.id}/edit">Edit</a>
+      <span class="dt-actions"><button type="button" class="btn btn-soft btn-sm" data-move-trade="${t.id}">Move to…</button><a class="btn btn-soft btn-sm" href="#/trade/${t.id}/edit">Edit</a></span>
     </li>`).join('')}</ul>`;
 }
 
@@ -1412,6 +1412,7 @@ async function renderSettings() {
   app.innerHTML = `
     <div class="dash-top"><div><h1>Settings</h1><p class="hint">Saved on this computer</p></div></div>
 
+    <div class="set-wrap">
     <section class="tile set-block">
       <h3>Appearance</h3>
       <div class="toggle" role="group" aria-label="Theme">
@@ -1455,6 +1456,7 @@ async function renderSettings() {
       <button type="button" class="btn btn-danger-solid" id="delete-all" disabled>Delete all trades</button>
       <span class="saved" id="delete-msg" role="status"></span>
     </section>
+    </div>
   `;
 
   app.querySelectorAll('input[name="lang"]').forEach((r) => r.addEventListener('change', () => window.I18N?.set(r.value)));
@@ -1585,7 +1587,7 @@ function calGridHTML({ weeks, monthName }) {
               </div>`;
             }
             return `<button type="button" role="gridcell" class="cal-day ${d.inMonth ? '' : 'out'} ${d.weekend ? 'weekend' : ''} ${statTone(st)} ${d.key === today ? 'today' : ''} ${d.key === calSelected ? 'selected' : ''}"
-              data-day="${d.key}" aria-label="${d.key}${st.n ? `, ${st.n} trades` : ''}${notes[d.key] ? ', has a note' : ''}">
+              data-day="${d.key}" ${st.n ? 'draggable="true" title="Drag onto another day to move these trades"' : ''} aria-label="${d.key}${st.n ? `, ${st.n} trades` : ''}${notes[d.key] ? ', has a note' : ''}">
               <span class="cal-num">${d.day}${notes[d.key] ? `<i class="cal-note" title="Has a note">${ICON.note}</i>` : ''}</span>${statLines(st)}</button>`;
           }).join('')}
           <div class="cal-week ${statTone(w.stat)}" role="gridcell"><span class="cal-num">Week ${i + 1}</span>${w.stat.n ? statLines(w.stat) : '<small>—</small>'}</div>
@@ -2865,6 +2867,80 @@ function askDialog({ title, body, actions }) {
   });
 }
 
+// ---------- Chuyển lệnh sang ngày khác (11/11) ----------
+// Hai cách: nút "Move to…" trên từng lệnh, hoặc kéo cả ô ngày (có lệnh) thả lên ô ngày khác. Chỉ đổi ngày; giờ, tài khoản, ghi chú ngày giữ nguyên.
+function pickDateDialog({ title, body, value }) {
+  return new Promise((resolve) => {
+    const dlg = document.createElement('dialog');
+    dlg.className = 'ask';
+    dlg.innerHTML = `<h3>${title}</h3><p class="hint">${body}</p>
+      <label class="inline">New date <input type="date" value="${esc(value)}" style="width:170px"></label>
+      <div class="ask-actions"><button type="button" class="btn" value="">Cancel</button><button type="button" class="btn btn-primary" value="ok">Move</button></div>`;
+    document.body.append(dlg);
+    const input = dlg.querySelector('input');
+    const done = (v) => { dlg.close(); dlg.remove(); resolve(v); };
+    dlg.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => done(b.value === 'ok' && /^\d{4}-\d{2}-\d{2}$/.test(input.value) ? input.value : null)));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); dlg.querySelector('[value="ok"]').click(); } });
+    dlg.addEventListener('cancel', (e) => { e.preventDefault(); done(null); });
+    dlg.showModal();
+    input.focus();
+  });
+}
+async function moveTrades(list, to) {
+  const moved = [];
+  try {
+    for (const t of list) {
+      await api(`/api/trades/${t.id}/date`, { method: 'PUT', body: JSON.stringify({ date: to }) });
+      moved.push({ kind: 'move', id: t.id, from: t.date });
+    }
+  } catch (ex) { toast(`Could not move: ${ex.message}`); }
+  if (!moved.length) return;
+  closeDayModal();
+  await route();
+  pushUndo(`Moved ${moved.length} trade${moved.length === 1 ? '' : 's'} to ${longDate(to)}`, moved);
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest?.('[data-move-trade]');
+  if (!b) return;
+  const t = allTrades.find((x) => x.id === Number(b.dataset.moveTrade));
+  if (!t) return;
+  const to = await pickDateDialog({ title: 'Move trade', body: 'Pick the new date. The time stays the same.', value: t.date });
+  if (to && to !== t.date) await moveTrades([t], to);
+});
+let dragDay = null;
+const clearDrop = () => document.querySelectorAll('.cal-day.drop-target, .cal-day.dragging').forEach((c) => c.classList.remove('drop-target', 'dragging'));
+document.addEventListener('dragstart', (e) => {
+  const c = e.target.closest?.('.cal-day[data-day][draggable="true"]');
+  if (!c) return;
+  dragDay = c.dataset.day;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragDay);
+  c.classList.add('dragging');
+});
+document.addEventListener('dragend', () => { dragDay = null; clearDrop(); });
+document.addEventListener('dragover', (e) => {
+  const c = e.target.closest?.('.cal-day[data-day]');
+  if (!dragDay || !c || c.dataset.day === dragDay) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  if (!c.classList.contains('drop-target')) { document.querySelectorAll('.cal-day.drop-target').forEach((x) => x.classList.remove('drop-target')); c.classList.add('drop-target'); }
+});
+document.addEventListener('drop', async (e) => {
+  const c = e.target.closest?.('.cal-day[data-day]');
+  if (!dragDay || !c || c.dataset.day === dragDay) return;
+  e.preventDefault();
+  const from = dragDay; const to = c.dataset.day;
+  dragDay = null; clearDrop();
+  const list = trades.filter((t) => t.date === from);
+  if (!list.length) return;
+  const ok = await askDialog({
+    title: `Move ${list.length} trade${list.length === 1 ? '' : 's'} to ${longDate(to)}?`,
+    body: `From ${longDate(from)}. Only the date changes: times and accounts stay the same. Day notes stay on their day.`,
+    actions: [{ label: 'Move', value: 'yes' }],
+  });
+  if (ok) await moveTrades(list, to);
+});
+
 // Xoá lệnh và/hoặc ghi chú của một ngày (từ lịch Dashboard: nút Delete… hoặc phím Delete)
 async function deleteDay(day) {
   if (!day) return;
@@ -3148,9 +3224,13 @@ async function undoLast() {
   saveUndo();
   if (!last) { toast('Nothing to undo. Deleted items are in Settings → Trash.'); return; }
   try {
-    await api('/api/trash/restore', { method: 'POST', body: JSON.stringify({ items: last.items }) });
+    // Việc chuyển ngày: trả từng lệnh về ngày cũ. Còn lại là xoá: khôi phục từ thùng rác.
+    const moves = last.items.filter((i) => i.kind === 'move');
+    const rest = last.items.filter((i) => i.kind !== 'move');
+    for (const m of moves) await api(`/api/trades/${m.id}/date`, { method: 'PUT', body: JSON.stringify({ date: m.from }) });
+    if (rest.length) await api('/api/trash/restore', { method: 'POST', body: JSON.stringify({ items: rest }) });
     await route();
-    toast(`Restored: ${last.label.replace(/^Deleted /, '').replace(/^Moved /, '')}`);
+    toast(moves.length && !rest.length ? 'Moved back' : `Restored: ${last.label.replace(/^Deleted /, '').replace(/^Moved /, '')}`);
   } catch (ex) {
     undoStack.push(last); saveUndo(); // chưa khôi phục được thì giữ lại để thử lần sau
     toast(`Could not undo: ${ex.message}`);

@@ -291,6 +291,16 @@
     await save();
     return json(clone(t), 201);
   });
+  // Chỉ đổi ngày của lệnh (chuyển sang ngày khác trên lịch)
+  on('PUT', '/api/trades/(\\d+)/date', async ([id], body) => {
+    const old = state.trades.find((x) => x.id === Number(id));
+    if (!old || old.deleted_at) notFound('Trade not found');
+    const date = body?.date;
+    if (typeof date !== 'string' || !DATE_RE.test(date) || Number.isNaN(Date.parse(date))) bad('Invalid date');
+    old.date = date; old.updated_at = now();
+    await save();
+    return json(clone(old));
+  });
   on('PUT', '/api/trades/(\\d+)/marks', async ([id], body) => {
     const old = state.trades.find((x) => x.id === Number(id));
     if (!old || old.deleted_at) notFound('Trade not found');

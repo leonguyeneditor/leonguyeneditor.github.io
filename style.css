@@ -1516,3 +1516,13 @@ dialog.img-view.drawing .anno-svg .mk-h[data-h="ne"], dialog.img-view.drawing .a
 .lang-opt { display: flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 15px; color: var(--text); cursor: pointer; border-radius: 8px; }
 .lang-opt:hover { background: var(--surface); }
 .lang-opt input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+
+/* ---------- Settings gọn lại (11/11): các thẻ không kéo hết màn hình, câu hướng dẫn không chạy quá dài ---------- */
+.set-wrap { max-width: 720px; }
+
+/* ---------- Kéo ô ngày thả sang ô khác để chuyển lệnh (11/11) ---------- */
+.cal-day[draggable="true"] { cursor: grab; }
+.cal-day.dragging { opacity: 0.45; }
+.cal-day.drop-target { outline: 2px dashed var(--accent); outline-offset: -2px; background: rgba(20, 184, 166, 0.12); }
+.day-trades li .btn { flex: none; }
+.day-trades .dt-actions { display: flex; gap: 6px; }
