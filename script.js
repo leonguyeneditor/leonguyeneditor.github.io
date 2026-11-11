@@ -1900,20 +1900,25 @@ function bindModelEditor(show) {
       box.innerHTML = all.map((v) => `<span class="chip-wrap"><button type="button" class="chip ${d[key].includes(v) ? 'on' : ''}" aria-pressed="${d[key].includes(v)}" data-value="${esc(v)}">${esc(cfg.fixed ? cap1(v) : v)}</button>${cfg.fixed ? '' : `<button type="button" class="chip-x" data-remove="${esc(v)}" aria-label="Remove ${esc(v)} from the list" title="Remove from the list">×</button>`}</span>`).join('')
         + (cfg.fixed ? '' : `<input class="chip-add" maxlength="${cfg.tf ? 8 : 40}" placeholder="+ Add" aria-label="Add your own">`);
     };
+    // Xoá hẳn một lựa chọn khỏi danh sách (lệnh và model đã dùng nó vẫn giữ giá trị cũ). Dùng cho dấu × và chuột phải → Delete.
+    const removeOption = async (v) => {
+      const ok = await askDialog({ title: `Remove ${esc(v)}?`, body: 'It will no longer show as an option. Trades and models that already use it keep it. You can add it again any time.', actions: [{ label: 'Remove', value: 'yes', danger: true }] });
+      if (!ok) return;
+      const next = cfg.list().filter((y) => y !== v);
+      cfg.set(next);
+      d[key] = d[key].filter((y) => y !== v);
+      api('/api/settings', { method: 'PUT', body: JSON.stringify({ [cfg.key]: next }) }).catch((ex) => show(`Not saved to your list: ${ex.message}`));
+      paint();
+    };
+    box.addEventListener('contextmenu', (e) => {
+      const c = e.target.closest('.chip');
+      if (!c || cfg.fixed) return;
+      e.preventDefault(); e.stopPropagation(); // không để menu chuột phải chung của trang đóng mất menu này
+      showMenu(e.clientX, e.clientY, [{ act: 'delete', label: 'Delete', danger: true }], () => removeOption(c.dataset.value));
+    });
     box.addEventListener('click', async (e) => {
-      // Dấu × : xoá hẳn lựa chọn khỏi danh sách (lệnh và model đã dùng nó vẫn giữ giá trị cũ)
       const x = e.target.closest('.chip-x');
-      if (x) {
-        const v = x.dataset.remove;
-        const ok = await askDialog({ title: `Remove ${esc(v)}?`, body: 'It will no longer show as an option. Trades and models that already use it keep it. You can add it again any time.', actions: [{ label: 'Remove', value: 'yes', danger: true }] });
-        if (!ok) return;
-        const next = cfg.list().filter((y) => y !== v);
-        cfg.set(next);
-        d[key] = d[key].filter((y) => y !== v);
-        api('/api/settings', { method: 'PUT', body: JSON.stringify({ [cfg.key]: next }) }).catch((ex) => show(`Not saved to your list: ${ex.message}`));
-        paint();
-        return;
-      }
+      if (x) { removeOption(x.dataset.remove); return; }
       const b = e.target.closest('.chip'); if (!b) return;
       const v = b.dataset.value;
       d[key] = d[key].includes(v) ? d[key].filter((x) => x !== v) : [...d[key], v];
@@ -2377,6 +2382,22 @@ function renderForm(existing, presetDate) {
         + '<input class="chip-add" placeholder="+ Add" aria-label="Add your own">';
     };
     box.addEventListener('rj-repaint', paint);
+    // Chuột phải vào một chip → Delete: xoá khỏi danh sách chung (lệnh cũ đã dùng vẫn giữ). Có thêm thì phải có xoá (11/11).
+    box.addEventListener('contextmenu', (e) => {
+      const c = e.target.closest('.chip'); if (!c) return;
+      e.preventDefault(); e.stopPropagation();
+      const v = c.dataset.value;
+      showMenu(e.clientX, e.clientY, [{ act: 'delete', label: 'Delete', danger: true }], async () => {
+        const ok = await askDialog({ title: `Remove ${esc(v)}?`, body: 'It will no longer show as an option. Trades and models that already use it keep it. You can add it again any time.', actions: [{ label: 'Remove', value: 'yes', danger: true }] });
+        if (!ok) return;
+        const next = listOf(key).filter((y) => y !== v);
+        if (key === 'mistakes') MISTAKES = next; else if (key === 'emotions') EMOTIONS = next;
+        else if (key === 'confirmations') CONFIRMATIONS = next; else if (key === 'dols') DOLS = next; else if (key === 'pdas') PDAS = next;
+        state[key] = state[key].filter((y) => y !== v);
+        api('/api/settings', { method: 'PUT', body: JSON.stringify({ [key]: next }) }).catch((ex) => toast(`Not saved to your list: ${ex.message}`));
+        paint();
+      });
+    });
     box.addEventListener('click', (e) => {
       const b = e.target.closest('.chip'); if (!b) return;
       const v = b.dataset.value;
