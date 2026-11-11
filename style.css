@@ -1541,3 +1541,7 @@ select:not([multiple]) {
 }
 /* Ô chọn nhỏ trong thanh công cụ vẽ (cỡ chữ): mũi tên nhỏ hơn, vẫn có chỗ thở */
 .iv-textctl select:not([multiple]) { padding-right: 24px; background-position: right 8px center; background-size: 10px 10px; }
+
+/* ---------- Settings: tiêu đề khối cùng kiểu với tiêu đề thẻ ở Dashboard/Accounts (11/11) ----------
+   Trước đây dùng Montserrat 16px (font rộng) nên chữ trông "bè" và lệch so với các trang khác. */
+.set-block h3 { font: 600 14px var(--font-body); letter-spacing: normal; color: var(--text); }
