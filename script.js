@@ -1987,7 +1987,8 @@ function groupBy(rows, keysOf) {
   rows.forEach((t) => keysOf(t).forEach((k) => { if (k) { if (!m.has(k)) m.set(k, []); m.get(k).push(t); } }));
   return m;
 }
-let reviewTab = 'zone'; // tab đang mở trong Breakdown
+let reviewTab = 'dol'; // tab đang mở trong Breakdown
+let pdaView = 'name';  // thẻ xếp hạng PDA: 'name' = theo tên PDA, 'zone' = PDA kèm khung giờ
 function renderModels() {
   const closedOf = (rows) => rows.filter((t) => notQuick(t) && outcomeOf(t) !== 'open');
   const cur = reviewRange(period, reviewOffset);
@@ -2017,7 +2018,7 @@ function renderModels() {
     const recipe = recipeLine(MODELS.find((m) => m.id === c.id)?.recipe);
     return `<div class="m-card ${c.none ? 'none' : ''} ${editingModel === c.id ? 'is-editing' : ''}">
       <header><b title="${esc(c.name)}">${esc(c.name)}</b>${c.none || c.gone ? '' : `<button type="button" class="m-more" data-model-menu="${c.id}" aria-label="Options for ${esc(c.name)}">⋯</button>`}</header>
-      ${recipe ? `<p class="m-recipe" title="${esc(recipe)}">${esc(recipe)}</p>` : ''}
+      <p class="m-recipe" ${recipe ? `title="${esc(recipe)}"` : 'aria-hidden="true"'}>${recipe ? esc(recipe) : '&nbsp;'}</p>
       <div class="m-win"><span>${pc(s.win)}</span><small>win</small></div>
       ${bar(s.win)}
       <p class="m-line">${s.n} trade${s.n === 1 ? '' : 's'} · <span class="${tone(s.avgR)}">${rv(s.avgR)}</span> · <span class="${tone(s.net)}">${usd(s.net)}</span></p>
@@ -2030,11 +2031,10 @@ function renderModels() {
   const tfOfZone = (t) => (t.pda_tf || []).join(' + ');
   const TABS = [
     ['dol', '1 · Daily target', 'Which daily target does price really reach for you?', 'Daily target = where you expected price to go (PDH, PDL…). A trade with 2 targets counts in both rows.', (t) => t.dols || []],
-    ['zone', '2 · HTF zone', 'Which HTF zone works best for you?', 'Each row is a PDA together with its timeframe, for example “FVG · H4”. “H4 + H1” = the zone was on both timeframes at once (confluence).', (t) => (t.pdas || []).map((p) => (tfOfZone(t) ? `${p} · ${tfOfZone(t)}` : p))],
-    ['struct', '3 · Structure', 'Do you win more when structure agrees with your HTF Bias?', 'Compares trades where the structure went the same way as your HTF Bias (H1/H4) with trades where it went against it or was sideways.', (t) => { const a = alignedOf(t.htf_bias, t.m15_structure); return [a === true ? 'With HTF Bias' : t.m15_structure === 'sideways' ? 'Sideways' : a === false ? 'Against HTF Bias' : null]; }, ['With HTF Bias', 'Against HTF Bias', 'Sideways']],
-    ['entry', '4 · Entry', 'Which entry works best for you?', 'Each row is your entry signal together with the timeframe you entered on, for example “MSS · M1”.', (t) => (t.confirmations || []).map((c) => (t.entry_tf ? `${c} · ${t.entry_tf}` : c))],
+    ['struct', '2 · Structure', 'Do you win more when structure agrees with your HTF Bias?', 'Compares trades where the structure went the same way as your HTF Bias (H1/H4) with trades where it went against it or was sideways.', (t) => { const a = alignedOf(t.htf_bias, t.m15_structure); return [a === true ? 'With HTF Bias' : t.m15_structure === 'sideways' ? 'Sideways' : a === false ? 'Against HTF Bias' : null]; }, ['With HTF Bias', 'Against HTF Bias', 'Sideways']],
+    ['entry', '3 · Entry', 'Which entry works best for you?', 'Each row is your entry signal together with the timeframe you entered on, for example “MSS · M1”.', (t) => (t.confirmations || []).map((c) => (t.entry_tf ? `${c} · ${t.entry_tf}` : c))],
   ];
-  if (!TABS.some((x) => x[0] === reviewTab)) reviewTab = 'zone';
+  if (!TABS.some((x) => x[0] === reviewTab)) reviewTab = 'dol';
   const [, tabName, tabQ, tabInfo, keysOf, order] = TABS.find((x) => x[0] === reviewTab);
   const g = groupBy(rows, keysOf); const pg = groupBy(prows, keysOf);
   const labels = order ? order.filter((x) => g.has(x)) : [...g.keys()].sort((a, b) => g.get(b).length - g.get(a).length);
@@ -2052,11 +2052,13 @@ function renderModels() {
   const bestLine = bestK && labels.length > 1 ? `<p class="rv-best">Best so far: <b>${esc(bestK)}</b> · ${pc(bestS.win)} win · ${bestS.n} trade${bestS.n === 1 ? '' : 's'} ${fewTag(bestS.n)}</p>` : '';
 
   // Xếp hạng PDA (11/11): theo TÊN PDA, gộp mọi khung giờ, tính từ mọi lệnh đã có kết quả, có model hay không đều được
-  const pdaG = groupBy(rows, (t) => t.pdas || []); const pdaPG = groupBy(prows, (t) => t.pdas || []);
+  const pdaKeys = (t) => (pdaView === 'zone' ? (t.pdas || []).map((p) => (tfOfZone(t) ? `${p} · ${tfOfZone(t)}` : p)) : (t.pdas || []));
+  const pdaG = groupBy(rows, pdaKeys); const pdaPG = groupBy(prows, pdaKeys);
   const pdaLabels = [...pdaG.keys()].sort((a, b) => { const A = groupStat(pdaG.get(a)); const B = groupStat(pdaG.get(b)); return (B.win ?? -1) - (A.win ?? -1) || B.n - A.n; });
   const pdaBest = pdaLabels.length > 1 ? pdaLabels[0] : null;
   const pdaCard = `<section class="tile rv-pda">
-      <header class="tile-head"><h3>Which PDA works best for you?</h3><button type="button" class="info-tip" data-tip="${esc('Counts every trade with a result, with or without a model, on any timeframe. A trade with 2 PDAs counts in both rows.\nTo see a PDA with its timeframe, open Breakdown → 2 · HTF zone.')}" aria-label="What is this?">${ICON.info}</button></header>
+      <header class="tile-head"><h3>Which PDA works best for you?</h3><button type="button" class="info-tip" data-tip="${esc('Counts every trade with a result, with or without a model. A trade with 2 PDAs counts in both rows.\n“PDA + timeframe” shows, for example, FVG · H4 apart from FVG · H1. “H4 + H1” means the zone was on both timeframes at once.')}" aria-label="What is this?">${ICON.info}</button>
+        <div class="segmented pda-view" role="group" aria-label="View">${[['name', 'By PDA'], ['zone', 'PDA + timeframe']].map(([v, l]) => `<button type="button" data-pda-view="${v}" class="${pdaView === v ? 'on' : ''}" aria-pressed="${pdaView === v}">${l}</button>`).join('')}</div></header>
       ${pdaLabels.length ? `${pdaBest ? `<p class="rv-best">Best so far: <b>${esc(pdaBest)}</b> · ${pc(groupStat(pdaG.get(pdaBest)).win)} win · ${groupStat(pdaG.get(pdaBest)).n} trade${groupStat(pdaG.get(pdaBest)).n === 1 ? '' : 's'} ${fewTag(groupStat(pdaG.get(pdaBest)).n)}</p>` : ''}
       <div class="rv-rows">
         <div class="rv-row head"><span></span><span>Win %</span><span class="num">Trades</span><span class="num">Avg R</span><span class="num">Net</span>${prev ? '<span class="num">vs prev</span>' : ''}</div>
@@ -2110,6 +2112,7 @@ function renderModels() {
 
   app.querySelectorAll('[data-period]').forEach((b) => b.addEventListener('click', () => { period = b.dataset.period; reviewOffset = 0; renderModels(); }));
   app.querySelectorAll('[data-rv]').forEach((b) => b.addEventListener('click', () => { const n = Number(b.dataset.rv); reviewOffset = n === 0 ? 0 : Math.max(0, reviewOffset + n); renderModels(); }));
+  app.querySelectorAll('[data-pda-view]').forEach((b) => b.addEventListener('click', () => { pdaView = b.dataset.pdaView; renderModels(); }));
   app.querySelectorAll('[data-rv-tab]').forEach((b) => b.addEventListener('click', () => { reviewTab = b.dataset.rvTab; renderModels(); }));
   const err = app.querySelector('.rv-error');
   const show = (m) => { err.textContent = m; err.hidden = false; };
