@@ -71,6 +71,9 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const NY = 'America/New_York';
 // Settings → Time zone: 'ny' (mặc định) hoặc 'local' (giờ của máy). Lưu theo trình duyệt, khoá rj-tz. Lệnh đã lưu không bị đổi ngày.
 const tzMode = () => { try { return localStorage.getItem('rj-tz') === 'local' ? 'local' : 'ny'; } catch { return 'ny'; } };
+// Tên múi giờ của máy để hiện trên nút (VD "Vietnam time"); không rõ thì dùng tên thành phố
+const tzLocalCity = () => { try { const z = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; return /^Asia\/(Ho_Chi_Minh|Saigon)$/.test(z) ? 'Vietnam' : (z.split('/').pop().replace(/_/g, ' ') || 'Local'); } catch { return 'Local'; } };
+const tzShort = () => (tzMode() === 'ny' ? 'NY' : (tzLocalCity() === 'Vietnam' ? 'VN' : 'local'));
 const tzOpt = () => (tzMode() === 'local' ? {} : { timeZone: NY });
 const todayStr = () => new Date().toLocaleDateString('sv-SE', tzOpt()); // YYYY-MM-DD
 const nowTime = () => new Date().toLocaleTimeString('en-GB', { ...tzOpt(), hour: '2-digit', minute: '2-digit', hour12: false });
@@ -1421,7 +1424,7 @@ async function renderSettings() {
       <h3>Time zone</h3>
       <p class="hint">Decides what counts as "today" on the calendar and the default time for a new trade. Saved trades keep their dates.</p>
       <div class="toggle" role="group" aria-label="Time zone">
-        ${[['ny', 'New York'], ['local', 'My computer']].map(([v, l]) =>
+        ${[['ny', 'New York time'], ['local', `${tzLocalCity()} time`]].map(([v, l]) =>
           `<button type="button" data-tz-pref="${v}" class="${tzMode() === v ? 'on' : ''}" aria-pressed="${tzMode() === v}">${l}</button>`).join('')}
       </div>
       <p class="hint"><span>Today</span>: <b data-no-i18n>${esc(longDate(todayStr()))}</b></p>
@@ -2067,7 +2070,7 @@ function renderForm(existing, presetDate) {
         <legend>Trade</legend>
         <div class="cols c3">
           <label>Date <input type="date" name="date" value="${esc(t.date)}" required></label>
-          <label>Time (${tzMode() === 'ny' ? 'NY' : 'local'}) <input type="time" name="time" value="${esc(t.time || '')}"></label>
+          <label>Time (${tzShort()}) <input type="time" name="time" value="${esc(t.time || '')}"></label>
           <label>Session <select name="session">${SESSIONS.map((s) => `<option ${s === t.session ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
         </div>
         <div class="cols c2">
