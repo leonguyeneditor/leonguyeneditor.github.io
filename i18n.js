@@ -199,6 +199,17 @@
     // Settings
     ['Saved on this computer', 'Lưu trên máy này', 'Guardado en este ordenador', 'Salvo neste computador', 'Tersimpan di komputer ini'],
     ['Appearance', 'Giao diện', 'Apariencia', 'Aparência', 'Tampilan'],
+    ['Time zone', 'Múi giờ', 'Zona horaria', 'Fuso horário', 'Zona waktu'],
+    ['New York', 'New York', 'Nueva York', 'Nova York', 'New York'],
+    ['My computer', 'Máy của mình', 'Mi ordenador', 'Meu computador', 'Komputer saya'],
+    ['Decides what counts as "today" on the calendar and the default time for a new trade. Saved trades keep their dates.',
+      'Quyết định ngày nào là "hôm nay" trên lịch và giờ mặc định khi thêm lệnh. Lệnh đã lưu giữ nguyên ngày.',
+      'Define qué cuenta como "hoy" en el calendario y la hora predeterminada de una operación nueva. Las operaciones guardadas conservan sus fechas.',
+      'Define o que conta como "hoje" no calendário e a hora padrão de uma nova operação. As operações salvas mantêm suas datas.',
+      'Menentukan hari mana yang dihitung "hari ini" di kalender dan jam default untuk transaksi baru. Transaksi yang sudah tersimpan tetap pada tanggalnya.'],
+    ['Time (local)', 'Giờ (máy)', 'Hora (local)', 'Hora (local)', 'Waktu (lokal)'],
+    ['New York date', 'ngày theo giờ New York', 'fecha de Nueva York', 'data de Nova York', 'tanggal New York'],
+    ['your date', 'ngày theo giờ máy', 'tu fecha', 'sua data', 'tanggal Anda'],
     ['Dark', 'Tối', 'Oscuro', 'Escuro', 'Gelap'],
     ['Light', 'Sáng', 'Claro', 'Claro', 'Terang'],
     ['Language', 'Ngôn ngữ', 'Idioma', 'Idioma', 'Bahasa'],
@@ -352,7 +363,9 @@
     [/^Delete (\d+) trades?$/, (m) => ({ vi: `Xoá ${m[1]} lệnh`, es: `Eliminar ${trades(m[1]).es}`, pt: `Excluir ${trades(m[1]).pt}`, id: `Hapus ${m[1]} transaksi` })],
     [/^Delete (\d+)$/, (m) => ({ vi: `Xoá ${m[1]}`, es: `Eliminar ${m[1]}`, pt: `Excluir ${m[1]}`, id: `Hapus ${m[1]}` })],
     [/^· (\d+%) win · (\d+) trades?$/, (m) => ({ vi: `· thắng ${m[1]} · ${m[2]} lệnh`, es: `· ${m[1]} acierto · ${trades(m[2]).es}`, pt: `· ${m[1]} acerto · ${trades(m[2]).pt}`, id: `· ${m[1]} menang · ${m[2]} transaksi` })],
-    [/^(\d+) days? · (.+) · New York dates$/, (m) => ({ vi: `${m[1]} ngày · ${m[2]} · ngày theo giờ New York`, es: `${m[1]} días · ${m[2]} · fechas de Nueva York`, pt: `${m[1]} dias · ${m[2]} · datas de Nova York`, id: `${m[1]} hari · ${m[2]} · tanggal New York` })],
+    [/^(\d+) days? · (.+) · (New York|your) dates$/, (m) => (m[3] === 'your'
+      ? ({ vi: `${m[1]} ngày · ${m[2]} · ngày theo giờ máy`, es: `${m[1]} días · ${m[2]} · tus fechas`, pt: `${m[1]} dias · ${m[2]} · suas datas`, id: `${m[1]} hari · ${m[2]} · tanggal Anda` })
+      : ({ vi: `${m[1]} ngày · ${m[2]} · ngày theo giờ New York`, es: `${m[1]} días · ${m[2]} · fechas de Nueva York`, pt: `${m[1]} dias · ${m[2]} · datas de Nova York`, id: `${m[1]} hari · ${m[2]} · tanggal New York` }))],
     [/^(\d+) losses? in a row today\. Close the charts\. Your session is over\.$/, (m) => ({ vi: `Thua ${m[1]} lệnh liên tiếp hôm nay. Tắt chart đi. Phiên của bạn đã kết thúc.`, es: `${m[1]} pérdidas seguidas hoy. Cierra los gráficos. Tu sesión terminó.`, pt: `${m[1]} perdas seguidas hoje. Feche os gráficos. Sua sessão acabou.`, id: `${m[1]} kali rugi beruntun hari ini. Tutup grafik. Sesimu selesai.` })],
     [/^No trades with (.+) filled in yet\. Fill it in the Setup block when you log a trade\.$/, () => ({ vi: 'Chưa có lệnh nào điền mục này. Hãy điền ở khối Thiết lập khi ghi lệnh.', es: 'Aún no hay operaciones con este dato. Rellénalo en el bloque Setup al registrar una operación.', pt: 'Ainda não há operações com este dado. Preencha no bloco Setup ao registrar uma operação.', id: 'Belum ada transaksi yang mengisi ini. Isi di blok Setup saat mencatat transaksi.' })],
     [/^No closed trades in (.+?)\.( Use ‹ to look at an earlier period\.)?$/, (m) => ({ vi: `Không có lệnh đã đóng trong ${m[1]}.${m[2] ? ' Bấm ‹ để xem kỳ trước.' : ''}`, es: `Sin operaciones cerradas en ${m[1]}.${m[2] ? ' Usa ‹ para ver un período anterior.' : ''}`, pt: `Sem operações fechadas em ${m[1]}.${m[2] ? ' Use ‹ para ver um período anterior.' : ''}`, id: `Tidak ada transaksi selesai di ${m[1]}.${m[2] ? ' Tekan ‹ untuk periode sebelumnya.' : ''}` })],

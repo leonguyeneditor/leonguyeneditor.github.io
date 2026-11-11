@@ -69,8 +69,11 @@ let period = 'week'; // week | month | all
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Ngày giờ theo New York (giờ của thị trường), không theo giờ máy
 const NY = 'America/New_York';
-const todayStr = () => new Date().toLocaleDateString('sv-SE', { timeZone: NY }); // YYYY-MM-DD
-const nowTime = () => new Date().toLocaleTimeString('en-GB', { timeZone: NY, hour: '2-digit', minute: '2-digit', hour12: false });
+// Settings → Time zone: 'ny' (mặc định) hoặc 'local' (giờ của máy). Lưu theo trình duyệt, khoá rj-tz. Lệnh đã lưu không bị đổi ngày.
+const tzMode = () => { try { return localStorage.getItem('rj-tz') === 'local' ? 'local' : 'ny'; } catch { return 'ny'; } };
+const tzOpt = () => (tzMode() === 'local' ? {} : { timeZone: NY });
+const todayStr = () => new Date().toLocaleDateString('sv-SE', tzOpt()); // YYYY-MM-DD
+const nowTime = () => new Date().toLocaleTimeString('en-GB', { ...tzOpt(), hour: '2-digit', minute: '2-digit', hour12: false });
 const cap1 = (str) => str.charAt(0).toUpperCase() + str.slice(1); // "tháng 11 năm 2026" → "Tháng 11 năm 2026"
 const MONTHS = window.I18N?.months || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; // tên tháng theo ngôn ngữ đã chọn
 const fmtDate = (d) => (d ? `${d.slice(8, 10)} ${MONTHS[Number(d.slice(5, 7)) - 1]}` : '');
@@ -998,7 +1001,7 @@ function renderDaily() {
     <div class="dash-top">
       <div>
         <h1>Daily Journal</h1>
-        <p class="hint">${days.length} day${days.length === 1 ? '' : 's'} · ${esc(scopeLabel())} · New York dates</p>
+        <p class="hint">${days.length} day${days.length === 1 ? '' : 's'} · ${esc(scopeLabel())} · ${tzMode() === 'ny' ? 'New York' : 'your'} dates</p>
       </div>
       <div class="dash-controls">
         <button type="button" class="btn btn-soft" data-all="close">Collapse all</button>
@@ -1414,6 +1417,16 @@ async function renderSettings() {
       </div>
     </section>
 
+    <section class="tile set-block">
+      <h3>Time zone</h3>
+      <p class="hint">Decides what counts as "today" on the calendar and the default time for a new trade. Saved trades keep their dates.</p>
+      <div class="toggle" role="group" aria-label="Time zone">
+        ${[['ny', 'New York'], ['local', 'My computer']].map(([v, l]) =>
+          `<button type="button" data-tz-pref="${v}" class="${tzMode() === v ? 'on' : ''}" aria-pressed="${tzMode() === v}">${l}</button>`).join('')}
+      </div>
+      <p class="hint"><span>Today</span>: <b data-no-i18n>${esc(longDate(todayStr()))}</b></p>
+    </section>
+
     <section class="tile set-block lang-block">
       <h3>Language</h3>
       <p class="hint">Choose your preferred language</p>
@@ -1442,6 +1455,10 @@ async function renderSettings() {
   `;
 
   app.querySelectorAll('input[name="lang"]').forEach((r) => r.addEventListener('change', () => window.I18N?.set(r.value)));
+  app.querySelectorAll('[data-tz-pref]').forEach((b) => b.addEventListener('click', () => {
+    try { localStorage.setItem('rj-tz', b.dataset.tzPref); } catch { /* bỏ qua */ }
+    location.reload(); // tải lại để lịch, ngày mặc định và các tháng đang xem dùng múi giờ mới
+  }));
   app.querySelectorAll('[data-theme-pref]').forEach((b) => b.addEventListener('click', () => { setTheme(b.dataset.themePref); renderSettings(); }));
   const item = (v) => { const [kind, ...rest] = v.split('|'); return { kind, id: rest.join('|') }; };
   const restore = async (items) => {
@@ -1799,7 +1816,7 @@ function bindSteps() {
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = f.name.value.trim();
-    const tfs = []; // khung giờ đã bỏ (đã chốt 09/11)
+    const tfs = []; // khung giờ đã bỏ (chủ dự án chốt 09/11)
     const items = [...box.querySelectorAll('.chip.on')].map((c) => c.dataset.value);
     if (!name) return show('Give the step a name, like Bias or Entry.');
     const isNew = editingStep === 'new';
@@ -2050,7 +2067,7 @@ function renderForm(existing, presetDate) {
         <legend>Trade</legend>
         <div class="cols c3">
           <label>Date <input type="date" name="date" value="${esc(t.date)}" required></label>
-          <label>Time (NY) <input type="time" name="time" value="${esc(t.time || '')}"></label>
+          <label>Time (${tzMode() === 'ny' ? 'NY' : 'local'}) <input type="time" name="time" value="${esc(t.time || '')}"></label>
           <label>Session <select name="session">${SESSIONS.map((s) => `<option ${s === t.session ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
         </div>
         <div class="cols c2">
@@ -3231,7 +3248,7 @@ function nbEditorHTML() {
   if (nbSel.kind === 'day') {
     const d = nbSel.date;
     return `
-      <div class="nb-meta"><span>Day note · New York date</span><span class="saved" id="nb-saved" role="status"></span></div>
+      <div class="nb-meta"><span>Day note · ${tzMode() === 'ny' ? 'New York date' : 'your date'}</span><span class="saved" id="nb-saved" role="status"></span></div>
       <h2 class="nb-day-title">${longDate(d)}</h2>
       ${nbDayStats(d)}
       <label class="nb-label" for="nb-day-text">Note</label>

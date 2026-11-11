@@ -553,7 +553,7 @@ select option { background: var(--field); color: var(--text); }
 }
 
 /* =====================================================================
-   Dashboard mới (08/11/2026): bố cục theo ảnh TradeZella Leo gửi,
+   Dashboard mới (08/11/2026): bố cục theo ảnh mẫu,
    màu và font giữ branding Reset Journal.
    ===================================================================== */
 main { max-width: 1480px; }
@@ -1247,7 +1247,7 @@ dialog.img-view::backdrop { background: rgba(0, 0, 0, 0.75); }
 .img-view .iv-tip { margin: 0; padding: 0 14px 10px; font-size: 12px; }
 .shot img { cursor: zoom-in; }
 .mc-no-plain { display: inline-flex; align-items: center; gap: 3px; color: var(--loss-text); } .mc-no-plain svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; }
-/* Setup theo quy trình của Leo + trang Review (10/11) */
+/* Setup theo quy trình của chủ dự án + trang Review (10/11) */
 .setup-flow { margin: -4px 0 0; font-size: 12px; letter-spacing: .02em; }
 .pda-tf { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 .pda-tf .hint { font-size: 12px; }
