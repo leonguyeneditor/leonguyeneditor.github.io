@@ -36,6 +36,21 @@ let ENTRY_M1 = ['Sweep', 'MSS', 'FVG', 'IFVG', 'CISD', 'OB', 'Displacement'];
 let MODELS = []; // [{ id, name, items: [...cũ], recipe?: { dols, pdas, pda_tf, structure, confirmations, entry_tf } }]
 let PDA_TFS = ['H4', 'H1'];    // khung giờ của vùng HTF PDA (tự thêm được ở editor model, 11/11)
 let ENTRY_TFS = ['M5', 'M1'];  // khung giờ vào lệnh
+// Các danh sách chọn theo khoá cài đặt: [lấy, gán]. Dùng để xoá một lựa chọn và hoàn tác (⌘Z) việc xoá (11/11).
+const LISTS = {
+  dols: [() => DOLS, (a) => { DOLS = a; }], pdas: [() => PDAS, (a) => { PDAS = a; }], confirmations: [() => CONFIRMATIONS, (a) => { CONFIRMATIONS = a; }],
+  mistakes: [() => MISTAKES, (a) => { MISTAKES = a; }], emotions: [() => EMOTIONS, (a) => { EMOTIONS = a; }],
+  pda_tfs: [() => PDA_TFS, (a) => { PDA_TFS = a; }], entry_tfs: [() => ENTRY_TFS, (a) => { ENTRY_TFS = a; }],
+};
+async function removeListItem(key, v) {
+  const [get, set] = LISTS[key];
+  const i = get().indexOf(v);
+  if (i < 0) return;
+  const next = get().filter((x) => x !== v);
+  set(next);
+  await api('/api/settings', { method: 'PUT', body: JSON.stringify({ [key]: next }) });
+  pushUndo(`Removed ${v} from the list`, [{ kind: 'listitem', key, v, i }]);
+}
 // Các bước chủ dự án tự đặt (09/11): tên, khung giờ dùng được, thành phần. Lưu ở settings "steps".
 // Id htf/m15/m1 giữ từ bản cũ để lệnh đã tick vẫn khớp. Khung giờ đã chọn lưu trong seen dạng "bước:@H1".
 let STEPS = [];
@@ -1904,11 +1919,9 @@ function bindModelEditor(show) {
     const removeOption = async (v) => {
       const ok = await askDialog({ title: `Remove ${esc(v)}?`, body: 'It will no longer show as an option. Trades and models that already use it keep it. You can add it again any time.', actions: [{ label: 'Remove', value: 'yes', danger: true }] });
       if (!ok) return;
-      const next = cfg.list().filter((y) => y !== v);
-      cfg.set(next);
       d[key] = d[key].filter((y) => y !== v);
-      api('/api/settings', { method: 'PUT', body: JSON.stringify({ [cfg.key]: next }) }).catch((ex) => show(`Not saved to your list: ${ex.message}`));
       paint();
+      removeListItem(cfg.key, v).then(paint).catch((ex) => show(`Not saved to your list: ${ex.message}`));
     };
     box.addEventListener('contextmenu', (e) => {
       const c = e.target.closest('.chip');
@@ -1939,6 +1952,7 @@ function bindModelEditor(show) {
     };
     box.addEventListener('keydown', (e) => { if (e.target.classList.contains('chip-add') && e.key === 'Enter') { e.preventDefault(); addFrom(e.target, true); } });
     box.addEventListener('focusout', (e) => { if (e.target.classList.contains('chip-add')) addFrom(e.target, false); });
+    box.addEventListener('rj-repaint', paint); // hoàn tác một lựa chọn đã xoá thì vẽ lại
     paint();
   });
 }
@@ -2081,8 +2095,10 @@ function renderModels() {
     const ok = await askDialog({ title: `Delete ${esc(m.name)}?`, body: used ? `${used} trade${used === 1 ? '' : 's'} used this model. They keep the name, marked “deleted”.` : 'No trades use this model yet.', actions: [{ label: 'Delete model', value: 'yes', danger: true }] });
     if (!ok) return;
     try {
+      const at = MODELS.findIndex((x) => x.id === m.id);
       await api('/api/settings', { method: 'PUT', body: JSON.stringify({ models: MODELS.filter((x) => x.id !== m.id) }) });
-      MODELS = MODELS.filter((x) => x.id !== m.id); toast(`Deleted ${m.name}`); renderModels();
+      MODELS = MODELS.filter((x) => x.id !== m.id); renderModels();
+      pushUndo(`Deleted model ${m.name}`, [{ kind: 'model', m: JSON.parse(JSON.stringify(m)), i: at }]);
     } catch (ex) { toast(ex.message); }
   };
   app.querySelectorAll('[data-model-menu]').forEach((b) => b.addEventListener('click', (ev) => {
@@ -2390,11 +2406,8 @@ function renderForm(existing, presetDate) {
       showMenu(e.clientX, e.clientY, [{ act: 'delete', label: 'Delete', danger: true }], async () => {
         const ok = await askDialog({ title: `Remove ${esc(v)}?`, body: 'It will no longer show as an option. Trades and models that already use it keep it. You can add it again any time.', actions: [{ label: 'Remove', value: 'yes', danger: true }] });
         if (!ok) return;
-        const next = listOf(key).filter((y) => y !== v);
-        if (key === 'mistakes') MISTAKES = next; else if (key === 'emotions') EMOTIONS = next;
-        else if (key === 'confirmations') CONFIRMATIONS = next; else if (key === 'dols') DOLS = next; else if (key === 'pdas') PDAS = next;
         state[key] = state[key].filter((y) => y !== v);
-        api('/api/settings', { method: 'PUT', body: JSON.stringify({ [key]: next }) }).catch((ex) => toast(`Not saved to your list: ${ex.message}`));
+        removeListItem(key, v).then(paint).catch((ex) => toast(`Not saved to your list: ${ex.message}`));
         paint();
       });
     });
@@ -3355,10 +3368,36 @@ async function undoLast() {
     // Việc chuyển ngày: trả từng lệnh về ngày cũ. Còn lại là xoá: khôi phục từ thùng rác.
     const moves = last.items.filter((i) => i.kind === 'move');
     const rest = last.items.filter((i) => i.kind !== 'move');
+    const listItems = last.items.filter((i) => i.kind === 'listitem');
+    const modelItems = last.items.filter((i) => i.kind === 'model');
+    const trashItems = rest.filter((i) => i.kind !== 'listitem' && i.kind !== 'model');
     for (const m of moves) await api(`/api/trades/${m.id}/date`, { method: 'PUT', body: JSON.stringify({ date: m.from }) });
-    if (rest.length) await api('/api/trash/restore', { method: 'POST', body: JSON.stringify({ items: rest }) });
+    // Lựa chọn đã xoá khỏi danh sách: đặt lại đúng vị trí cũ
+    for (const it of listItems) {
+      const [get, set] = LISTS[it.key];
+      if (get().includes(it.v)) continue;
+      const next = [...get()]; next.splice(Math.min(it.i, next.length), 0, it.v);
+      set(next);
+      await api('/api/settings', { method: 'PUT', body: JSON.stringify({ [it.key]: next }) });
+    }
+    // Model đã xoá: đặt lại đúng vị trí cũ (lệnh cũ của model nhận lại tên và công thức)
+    for (const it of modelItems) {
+      if (MODELS.some((x) => x.id === it.m.id)) continue;
+      const next = [...MODELS]; next.splice(Math.min(it.i, next.length), 0, it.m);
+      await api('/api/settings', { method: 'PUT', body: JSON.stringify({ models: next }) });
+      MODELS = next;
+    }
+    if (trashItems.length) await api('/api/trash/restore', { method: 'POST', body: JSON.stringify({ items: trashItems }) });
+    if (listItems.length && !moves.length && !trashItems.length && !modelItems.length) {
+      // Chỉ là danh sách chọn: vẽ lại các chip, KHÔNG dựng lại trang (đang gõ dở form thì không mất chữ)
+      document.querySelectorAll('[data-chips], [data-me], [data-multi], [data-toggle]').forEach((b) => b.dispatchEvent(new Event('rj-repaint')));
+      toast(`Brought back ${listItems.map((i) => i.v).join(', ')}`);
+      return;
+    }
     await route();
-    toast(moves.length && !rest.length ? 'Moved back' : `Restored: ${last.label.replace(/^Deleted /, '').replace(/^Moved /, '')}`);
+    toast(moves.length && !trashItems.length && !modelItems.length ? 'Moved back'
+      : modelItems.length && !trashItems.length ? `Brought back ${modelItems.map((i) => i.m.name).join(', ')}`
+      : `Restored: ${last.label.replace(/^Deleted /, '').replace(/^Moved /, '')}`);
   } catch (ex) {
     undoStack.push(last); saveUndo(); // chưa khôi phục được thì giữ lại để thử lần sau
     toast(`Could not undo: ${ex.message}`);
