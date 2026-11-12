@@ -310,6 +310,22 @@
     await save();
     return json(clone(old));
   });
+  // Chỉ sửa kết quả ($ và/hoặc R) của 1 lệnh (khung ngày). Giống server.js.
+  on('PUT', '/api/trades/(\\d+)/result', async ([id], body) => {
+    const old = state.trades.find((x) => x.id === Number(id));
+    if (!old || old.deleted_at) notFound('Trade not found');
+    const b = body || {};
+    const num = (v, label) => { if (v === '' || v == null) return null; const n = Number(v); if (!Number.isFinite(n)) bad(`Invalid ${label}`); return n; };
+    const hasP = 'pnl_usd' in b; const hasR = 'result_r' in b;
+    let pnl = old.pnl_usd ?? null; let r = old.result_r ?? null;
+    if (hasP) pnl = num(b.pnl_usd, 'P&L');
+    if (hasR) r = num(b.result_r, 'R');
+    if (hasP && !hasR && old.risk_usd > 0 && pnl !== null) r = Math.round((pnl / old.risk_usd) * 100) / 100;
+    if (pnl === null && r === null) bad('Enter a $ amount or an R result');
+    old.pnl_usd = pnl; old.result_r = r; old.updated_at = now();
+    await save();
+    return json(clone(old));
+  });
   on('PUT', '/api/trades/(\\d+)/marks', async ([id], body) => {
     const old = state.trades.find((x) => x.id === Number(id));
     if (!old || old.deleted_at) notFound('Trade not found');

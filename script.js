@@ -606,8 +606,11 @@ function openDayModal(day) {
   const q = quick.length === 1 ? quick[0] : null; // 1 kết quả nhập nhanh thì sửa luôn nó
   const st = dayStats(rows);
   // Ngày đã có lệnh đầy đủ: 3 ô chỉ hiện tổng (khoá), không cho cộng chồng kết quả nhanh
-  const locked = rows.some(notQuick);
+  // Đúng 1 lệnh đầy đủ và không có kết quả nhanh: sửa $ / RR ngay tại đây (không cần Edit). Nhiều lệnh thì khoá (không biết sửa lệnh nào).
+  const solo = rows.length === 1 && !rows[0].quick ? rows[0] : null;
+  const locked = rows.some(notQuick) && !solo;
   const ro = locked ? ' readonly tabindex="-1"' : '';
+  const roN = (locked || solo) ? ' readonly tabindex="-1"' : '';
   const long = new Date(`${day}T12:00:00Z`).toLocaleDateString((window.I18N?.locale || 'en-US'), { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   const summary = [st.n ? `${st.n} trade${st.n === 1 ? '' : 's'}` : 'No trades', st.usd != null ? fmtUsd(st.usd) || '$0' : '', st.r != null ? fmtRv(st.r) : ''].filter(Boolean).join(' · ');
   const dlg = document.createElement('dialog');
@@ -619,14 +622,14 @@ function openDayModal(day) {
       <button type="button" class="dm-x" data-dm-close aria-label="Close">${ICON.cross}</button>
     </header>
     <form class="dm-quick${locked ? ' locked' : ''}" autocomplete="off">
-      <div class="dm-label"><b>Day result</b><span class="hint">${locked ? 'Calculated from your trades. Edit a trade below to change it.' : q ? 'Edit the result you typed for this day.' : 'No time to log each trade? Type the day total.'}</span></div>
+      <div class="dm-label"><b>Day result</b><span class="hint">${locked ? 'Calculated from your trades. Edit a trade below to change it.' : solo ? 'Change this trade\'s result here. Press Edit below for anything else.' : q ? 'Edit the result you typed for this day.' : 'No time to log each trade? Type the day total.'}</span></div>
       <div class="dm-fields">
-        <label>Trades<input name="n" inputmode="numeric" value="${locked ? st.n : q?.trade_count ?? ''}" placeholder="optional"${ro}></label>
-        <label>$ P&amp;L<input name="usd" inputmode="decimal" value="${locked ? (st.usd != null ? +st.usd.toFixed(2) : '') : q?.pnl_usd ?? ''}" placeholder="e.g. $120"${ro}></label>
-        <label>RR<input name="r" inputmode="decimal" value="${locked ? (st.r != null ? +st.r.toFixed(2) : '') : q?.result_r ?? ''}" placeholder="optional"${ro}></label>
+        <label>Trades<input name="n" inputmode="numeric" value="${locked || solo ? st.n : q?.trade_count ?? ''}" placeholder="optional"${roN}></label>
+        <label>$ P&amp;L<input name="usd" inputmode="decimal" value="${locked || solo ? (st.usd != null ? +st.usd.toFixed(2) : '') : q?.pnl_usd ?? ''}" placeholder="e.g. $120"${ro}></label>
+        <label>RR<input name="r" inputmode="decimal" value="${locked || solo ? (st.r != null ? +st.r.toFixed(2) : '') : q?.result_r ?? ''}" placeholder="optional"${ro}></label>
         ${locked ? '' : '<button type="submit" class="btn btn-primary">Save</button>'}
       </div>
-      ${locked ? '' : `<p class="hint dm-tip">Only the $ amount is needed. A losing day? Add a minus: -$80 · RR = risk-to-reward, e.g. 1.5 = you made 1.5× your risk · Enter to save${q ? ' · Clear all boxes and save to remove it' : ''}</p>`}
+      ${solo ? '<p class="hint dm-tip">Change $ P&amp;L and RR is recalculated from your risk · Change only RR to override it · Enter to save</p>' : locked ? '' : `<p class="hint dm-tip">Only the $ amount is needed. A losing day? Add a minus: -$80 · RR = risk-to-reward, e.g. 1.5 = you made 1.5× your risk · Enter to save${q ? ' · Clear all boxes and save to remove it' : ''}</p>`}
       <p class="saved error" role="status"></p>
     </form>
     ${rows.filter(notQuick).length ? `<section class="dm-sec"><h3>Trades</h3>${dayTradesHTML(rows.filter(notQuick))}</section>` : ''}
@@ -662,8 +665,34 @@ function openDayModal(day) {
     e.preventDefault();
     if (locked || saving) return;
     saving = true;
-    try { await saveQuick(); } finally { saving = false; }
+    try { await (solo ? saveSolo() : saveQuick()); } finally { saving = false; }
   });
+  // Sửa kết quả của lệnh duy nhất trong ngày (không cần mở Edit). Hoàn tác được bằng ⌘Z.
+  async function saveSolo() {
+    const usd = cellNum(f.usd.value); const r = cellNum(f.r.value);
+    if ([usd, r].some((v) => Number.isNaN(v))) { msg.textContent = 'Use numbers only, like 120, -80 or 1.5.'; return; }
+    if (usd === null && r === null) { msg.textContent = 'A trade needs a $ amount or an RR. Type one of them.'; return; }
+    const shown = (v) => (v == null ? null : +v.toFixed(2));
+    const usdChanged = usd !== shown(solo.pnl_usd); const rChanged = r !== shown(solo.result_r);
+    if (!usdChanged && !rChanged) { msg.textContent = 'Nothing changed.'; return; }
+    const body = {};
+    if (usdChanged) body.pnl_usd = usd ?? '';
+    if (rChanged) body.result_r = r ?? '';
+    // Chỉ sửa RR mà lệch xa so với $ ÷ Risk: hỏi lại cho chắc
+    const pnlNow = usdChanged ? usd : solo.pnl_usd;
+    if (rChanged && !usdChanged && r !== null && solo.risk_usd > 0 && pnlNow != null) {
+      const implied = pnlNow / solo.risk_usd;
+      if (Math.abs(r - implied) > 0.2) {
+        const ok = await askDialog({ title: 'RR does not match P&L', body: `Risk is $${solo.risk_usd} and P&L is ${fmtUsd(pnlNow) || '$0'}, which is ${fmtRv(Math.round(implied * 100) / 100) || '0R'}. Change RR to ${fmtRv(r) || '0R'} anyway?`, actions: [{ value: 'ok', label: 'Change RR only' }] });
+        if (ok !== 'ok') return;
+      }
+    }
+    try {
+      await api(`/api/trades/${solo.id}/result`, { method: 'PUT', body: JSON.stringify(body) });
+      changed = true; dlg.close();
+      pushUndo(`Updated result (${fmtDate(day)})`, [{ kind: 'result', id: solo.id, pnl: solo.pnl_usd ?? null, r: solo.result_r ?? null }]);
+    } catch (ex) { msg.textContent = ex.message; }
+  }
   async function saveQuick() {
     const n = cellNum(f.n.value); const usd = cellNum(f.usd.value); const r = cellNum(f.r.value);
     if ([n, usd, r].some((v) => Number.isNaN(v))) { msg.textContent = 'Use numbers only, like 3, 120, -80 or 1.5.'; return; }
@@ -3394,7 +3423,9 @@ async function undoLast() {
     const rest = last.items.filter((i) => i.kind !== 'move');
     const listItems = last.items.filter((i) => i.kind === 'listitem');
     const modelItems = last.items.filter((i) => i.kind === 'model');
-    const trashItems = rest.filter((i) => i.kind !== 'listitem' && i.kind !== 'model');
+    const resultItems = last.items.filter((i) => i.kind === 'result');
+    const trashItems = rest.filter((i) => i.kind !== 'listitem' && i.kind !== 'model' && i.kind !== 'result');
+    for (const it of resultItems) await api(`/api/trades/${it.id}/result`, { method: 'PUT', body: JSON.stringify({ pnl_usd: it.pnl, result_r: it.r }) });
     for (const m of moves) await api(`/api/trades/${m.id}/date`, { method: 'PUT', body: JSON.stringify({ date: m.from }) });
     // Lựa chọn đã xoá khỏi danh sách: đặt lại đúng vị trí cũ
     for (const it of listItems) {
@@ -3419,7 +3450,8 @@ async function undoLast() {
       return;
     }
     await route();
-    toast(moves.length && !trashItems.length && !modelItems.length ? 'Moved back'
+    toast(resultItems.length && !moves.length && !trashItems.length && !modelItems.length ? 'Result restored'
+      : moves.length && !trashItems.length && !modelItems.length ? 'Moved back'
       : modelItems.length && !trashItems.length ? `Brought back ${modelItems.map((i) => i.m.name).join(', ')}`
       : `Restored: ${last.label.replace(/^Deleted /, '').replace(/^Moved /, '')}`);
   } catch (ex) {

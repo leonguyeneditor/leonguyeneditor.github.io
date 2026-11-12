@@ -17,6 +17,15 @@
   // ---------- Từ điển: [English, Tiếng Việt, Español, Português, Bahasa Indonesia] ----------
   const ROWS = [
     // Khung chung, menu
+    ["Change this trade's result here. Press Edit below for anything else.", 'Sửa kết quả của lệnh này ngay tại đây. Muốn sửa phần khác thì bấm Edit bên dưới.', 'Cambia el resultado de esta operación aquí. Pulsa Edit abajo para lo demás.', 'Altere o resultado desta operação aqui. Clique em Edit abaixo para o resto.', 'Ubah hasil transaksi ini di sini. Tekan Edit di bawah untuk hal lainnya.'],
+    ['Change $ P&L and RR is recalculated from your risk · Change only RR to override it · Enter to save', 'Đổi $ P&L thì RR tự tính lại theo Risk · Chỉ đổi RR để ghi đè · Enter để lưu', 'Cambia el $ P&L y el RR se recalcula con tu riesgo · Cambia solo el RR para sobrescribirlo · Enter para guardar', 'Altere o $ P&L e o RR é recalculado pelo seu risco · Altere só o RR para substituí-lo · Enter para salvar', 'Ubah $ P&L dan RR dihitung ulang dari risikomu · Ubah RR saja untuk menimpanya · Enter untuk menyimpan'],
+    ['A trade needs a $ amount or an RR. Type one of them.', 'Lệnh cần có số $ hoặc RR. Hãy nhập một trong hai.', 'Una operación necesita un importe en $ o un RR. Escribe uno de ellos.', 'Uma operação precisa de um valor em $ ou RR. Digite um deles.', 'Transaksi butuh jumlah $ atau RR. Isi salah satunya.'],
+    ['Use numbers only, like 120, -80 or 1.5.', 'Chỉ nhập số, ví dụ 120, -80 hoặc 1.5.', 'Usa solo números, como 120, -80 o 1.5.', 'Use apenas números, como 120, -80 ou 1.5.', 'Hanya angka, misalnya 120, -80 atau 1.5.'],
+    ['Nothing changed.', 'Chưa có gì thay đổi.', 'No hay cambios.', 'Nada mudou.', 'Tidak ada perubahan.'],
+    ['RR does not match P&L', 'RR không khớp với P&L', 'El RR no coincide con el P&L', 'O RR não corresponde ao P&L', 'RR tidak cocok dengan P&L'],
+    ['Change RR only', 'Chỉ đổi RR', 'Cambiar solo el RR', 'Alterar só o RR', 'Ubah RR saja'],
+    ['Result restored', 'Đã khôi phục kết quả', 'Resultado restaurado', 'Resultado restaurado', 'Hasil dikembalikan'],
+    [/^Updated result \((.+)\)$/, null],
     ['Journal', 'Nhật ký', 'Diario', 'Diário', 'Jurnal'],
     ['Trading Journal', 'Nhật ký giao dịch', 'Diario de trading', 'Diário de trading', 'Jurnal trading'],
     ['+ New trade', '+ Lệnh mới', '+ Nueva operación', '+ Nova operação', '+ Transaksi baru'],
@@ -427,6 +436,8 @@
     [/^Chart (\d+)$/, (m) => ({ vi: `Chart ${m[1]}`, es: `Gráfico ${m[1]}`, pt: `Gráfico ${m[1]}`, id: `Grafik ${m[1]}` })],
     [/^Delete chart (\d+)\?$/, (m) => ({ vi: `Xoá chart ${m[1]}?`, es: `¿Eliminar el gráfico ${m[1]}?`, pt: `Excluir o gráfico ${m[1]}?`, id: `Hapus grafik ${m[1]}?` })],
     [/^prev (.+)$/, (m) => ({ vi: `kỳ trước ${m[1]}`, es: `ant. ${m[1]}`, pt: `ant. ${m[1]}`, id: `sblm ${m[1]}` })],
+    [/^Updated result \((.+)\)$/, (m) => ({ vi: `Đã sửa kết quả (${m[1]})`, es: `Resultado actualizado (${m[1]})`, pt: `Resultado atualizado (${m[1]})`, id: `Hasil diperbarui (${m[1]})` })],
+    [/^Risk is \$([\d.]+) and P&L is (.+), which is (.+)\. Change RR to (.+) anyway\?$/, (m) => ({ vi: `Risk là $${m[1]} và P&L là ${m[2]}, tức ${m[3]}. Vẫn đổi RR thành ${m[4]}?`, es: `El riesgo es $${m[1]} y el P&L es ${m[2]}, o sea ${m[3]}. ¿Cambiar el RR a ${m[4]} de todos modos?`, pt: `O risco é $${m[1]} e o P&L é ${m[2]}, ou seja ${m[3]}. Alterar o RR para ${m[4]} mesmo assim?`, id: `Risiko $${m[1]} dan P&L ${m[2]}, yaitu ${m[3]}. Tetap ubah RR menjadi ${m[4]}?` })],
     [/^(.+?) Yours: (.+)$/, (m) => { const t = AXT[m[1]]; if (!t) return null; const raw = axRaw(m[2]); const yo = { vi: 'Của bạn', es: 'Tuyo', pt: 'Seu', id: 'Milikmu' }; const o = {}; for (const k of ['vi', 'es', 'pt', 'id']) o[k] = `${t[k]}\n\n${yo[k]}: ${raw ? raw[k] : m[2]}`; return o; }],
     [/^Net P&L (?!=)(.+)$/, (m) => ({ vi: `P&L ròng ${m[1]}`, es: `P&L neto ${m[1]}`, pt: `P&L líquido ${m[1]}`, id: `P&L bersih ${m[1]}` })],
     [/^Move (\d+) trades? to (.+)\?$/, (m) => ({ vi: `Chuyển ${m[1]} lệnh sang ${m[2]}?`, es: `¿Mover ${trades(m[1]).es} a ${m[2]}?`, pt: `Mover ${trades(m[1]).pt} para ${m[2]}?`, id: `Pindahkan ${m[1]} transaksi ke ${m[2]}?` })],
