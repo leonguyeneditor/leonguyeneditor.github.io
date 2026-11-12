@@ -2160,7 +2160,7 @@ function renderForm(existing, presetDate) {
   const last = trades[0] || {};
   const t = existing || {
     date: presetDate || todayStr(), time: presetDate && presetDate !== todayStr() ? '' : nowTime(), session: last.session || 'NY AM', symbol: last.symbol || 'MNQ',
-    account_id: last.account_id ?? null, risk_usd: last.risk_usd ?? null, direction: null,
+    account_id: last.account_id ?? null, risk_usd: null, direction: null, // Risk để trống: chủ dự án không muốn tự điền theo lệnh trước (13/11)
     setup_name: '', market_context: '', area_of_interest: '', confirmations: [], conditions_met: null,
     pnl_usd: null, contracts: null, followed_plan: null, mistakes: [], lesson: '',
     emotions: [], plan_break_reason: '', htf_bias: null, dols: [], news_today: null, news_note: '', hindsight: '',
