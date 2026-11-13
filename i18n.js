@@ -73,6 +73,7 @@
     ['Leave this trade?', 'Rời khỏi lệnh này?', '¿Salir de esta operación?', 'Sair desta operação?', 'Tinggalkan transaksi ini?'],
     ['Leave', 'Rời đi', 'Salir', 'Sair', 'Tinggalkan'],
     ['Score', 'Điểm', 'Puntuación', 'Pontuação', 'Skor'],
+    ['Choose an account so this trade is counted in the right place.', 'Hãy chọn tài khoản để lệnh này được tính đúng chỗ.', 'Elige una cuenta para que esta operación cuente en el lugar correcto.', 'Escolha uma conta para que esta operação seja contada no lugar certo.', 'Pilih akun agar transaksi ini dihitung di tempat yang benar.'],
     ['Journal', 'Nhật ký', 'Diario', 'Diário', 'Jurnal'],
     ['Trading Journal', 'Nhật ký giao dịch', 'Diario de trading', 'Diário de trading', 'Jurnal trading'],
     ['+ New trade', '+ Lệnh mới', '+ Nueva operación', '+ Nova operação', '+ Transaksi baru'],

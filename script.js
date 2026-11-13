@@ -1227,7 +1227,8 @@ let scope = (() => { try { return localStorage.getItem('rj-scope') || 'all'; } c
 // Lệnh chưa gắn tài khoản (VD kết quả nhanh cũ) hiện ở mọi lựa chọn, để không bao giờ "biến mất"
 function applyScope(list) {
   if (scope === 'all') return list;
-  const keep = (fn) => list.filter((t) => t.account_id == null || fn(t));
+  // Mỗi tài khoản tính ĐỘC LẬP (13/11): lệnh chưa gắn tài khoản chỉ được tính ở "All accounts"
+  const keep = (fn) => list.filter((t) => t.account_id != null && fn(t));
   if (scope === 'real') return keep((t) => accOf(t)?.type === 'personal');
   if (scope === 'demo') return keep((t) => accOf(t)?.type === 'demo');
   if (scope === 'prop') return keep((t) => isProp(accOf(t)));
@@ -1240,6 +1241,13 @@ function scopeAccountId() {
   const fit = { real: (a) => a.type === 'personal', demo: (a) => a.type === 'demo', prop: (a) => isProp(a) }[scope];
   const list = fit ? accounts.filter(fit) : [];
   return list.length === 1 ? list[0].id : '';
+}
+// Tài khoản mặc định cho lệnh mới (13/11): tài khoản đang chọn ở thanh trên; nếu chỉ có 1 tài khoản đang mở thì lấy nó; còn lại để trống, bắt chọn
+function defaultAccountId() {
+  const id = scopeAccountId();
+  if (id) return id;
+  const open = accounts.filter((a) => a.status === 'active');
+  return open.length === 1 ? open[0].id : null;
 }
 function scopeLabel() {
   if (scope === 'all') return 'All accounts';
@@ -2216,7 +2224,7 @@ function renderForm(existing, presetDate) {
   const last = trades[0] || {};
   const t0 = existing || {
     date: presetDate || todayStr(), time: presetDate && presetDate !== todayStr() ? '' : nowTime(), session: last.session || 'NY AM', symbol: last.symbol || 'MNQ',
-    account_id: last.account_id ?? null, risk_usd: null, direction: null, // Risk để trống: chủ dự án không muốn tự điền theo lệnh trước (13/11)
+    account_id: defaultAccountId(), risk_usd: null, direction: null, // Risk để trống: chủ dự án không muốn tự điền theo lệnh trước (13/11)
     setup_name: '', market_context: '', area_of_interest: '', confirmations: [], conditions_met: null,
     pnl_usd: null, contracts: null, followed_plan: null, mistakes: [], lesson: '',
     emotions: [], plan_break_reason: '', htf_bias: null, dols: [], news_today: null, news_note: '', hindsight: '',
@@ -2607,6 +2615,12 @@ function renderForm(existing, presetDate) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(form);
+    if (accounts.length && !fd.get('account_id')) {
+      const er = form.querySelector('.error');
+      er.textContent = 'Choose an account so this trade is counted in the right place.'; er.hidden = false;
+      form.querySelector('select[name="account_id"]')?.focus();
+      return;
+    }
     const body = {
       date: fd.get('date'), time: fd.get('time'), session: fd.get('session'), symbol: fd.get('symbol'),
       account_id: fd.get('account_id'), risk_usd: fd.get('risk_usd'), pnl_usd: fd.get('pnl_usd'),
