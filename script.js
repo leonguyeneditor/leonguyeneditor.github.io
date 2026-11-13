@@ -72,7 +72,7 @@ const itemLabel = (x) => { const [k, n] = splitItem(x); return `${n} (${(TIERS.f
 const modelScore = (t) => (t.model_id && t.model_items?.length ? Math.round((t.model_checks.length / t.model_items.length) * 100) : null);
 const modelMissing = (t) => (t.model_items || []).filter((x) => !t.model_checks.includes(x));
 const scoreTone = (s) => (s == null ? '' : s === 100 ? 'win' : s < 60 ? 'loss' : 'mid');
-const scoreBadge = (t) => { const s = modelScore(t); return s == null ? '' : `<span class="score-badge ${scoreTone(s)}" title="Model score: ${s}% of the model's conditions">${s}%</span>`; };
+const scoreBadge = (t) => { const s = modelScore(t); return s == null ? '' : `<span class="score-badge ${scoreTone(s)}" title="Strategy score: ${s}% of the strategy's conditions">${s}%</span>`; };
 
 const app = document.getElementById('app');
 let trades = [];
@@ -881,7 +881,7 @@ function renderDashboard() {
           </tr>`).join('')}</tbody>
         </table></div>` : '<div class="tile-empty"><p>No trades yet.</p><a class="btn btn-soft" href="#/new">+ New trade</a></div>', '', '<a class="link tile-link" href="#/trades">View all</a>')}
       ${tile('Account balance', 'Account balance = starting balance + the $ result of every trade in that account.\nSet the starting balance in Accounts (top bar → Manage accounts).', balanceHTML())}
-      ${tile('Model Performance', `Win % of each of your models (${periodName}): trades that made money ÷ all closed trades of that model.\nExample: Model 1 won 6 of 10 trades → 60%.\n“few” = under ${FEW} trades, so the number can still be luck.\nQuick entries (day totals) are not counted. Click a row for the full table.`, modelPerfHTML(list), 'mp-tile', '<a class="link tile-link" href="#/models">Models</a>')}
+      ${tile('Strategy Performance', `Win % of each of your strategies (${periodName}): trades that made money ÷ all closed trades of that strategy.\nExample: Strategy 1 won 6 of 10 trades → 60%.\n“few” = under ${FEW} trades, so the number can still be luck.\nQuick entries (day totals) are not counted. Click a row for the full table.`, modelPerfHTML(list), 'mp-tile', '<a class="link tile-link" href="#/strategies">Strategies</a>')}
     </div>
 
     <section class="tile cal-tile" id="cal-section">
@@ -1717,7 +1717,7 @@ function renderGallery() {
     </div>
     ${trades.length ? `
     <div class="filters">
-      ${select('setup', 'All models', [...new Set(trades.map((t) => t.model_name || t.setup_name).filter(Boolean))].sort().map((s) => [s, s]))}
+      ${select('setup', 'All strategies', [...new Set(trades.map((t) => t.model_name || t.setup_name).filter(Boolean))].sort().map((s) => [s, s]))}
       ${select('account', 'All accounts', accounts.map((a) => [String(a.id), a.name]))}
       ${select('mistake', 'All mistakes', MISTAKES.map((m) => [m, m]))}
       ${select('outcome', 'Win / Loss', [['win', 'Wins'], ['loss', 'Losses'], ['flat', 'Breakeven'], ['open', 'Open']])}
@@ -1774,7 +1774,7 @@ function modelGroups(list) {
     const key = t.model_id || 0;
     if (!groups.has(key)) {
       const live = MODELS.find((m) => m.id === key);
-      groups.set(key, { id: key, name: key ? (live?.name || `${t.model_name} (deleted)`) : 'No model', rows: [] });
+      groups.set(key, { id: key, name: key ? (live?.name || `${t.model_name} (deleted)`) : 'No strategy', rows: [] });
     }
     groups.get(key).rows.push(t);
   }
@@ -1795,9 +1795,9 @@ const fewTag = (n) => (n && n < FEW ? `<span class="few" title="Under ${FEW} tra
 
 function modelPerfHTML(list) {
   const gs = modelGroups(list);
-  if (!MODELS.length && !gs.some((g) => g.id)) return `<div class="tile-empty"><p>No models yet. Save your setup as a model, then pick it when you log a trade.</p><a class="btn btn-soft" href="#/models">Create a model</a></div>`;
+  if (!MODELS.length && !gs.some((g) => g.id)) return `<div class="tile-empty"><p>No strategies yet. Save your setup as a strategy, then pick it when you log a trade.</p><a class="btn btn-soft" href="#/strategies">Create a strategy</a></div>`;
   return `<div class="mp-list">${gs.map((g) => `
-    <a class="mp-row" href="#/models">
+    <a class="mp-row" href="#/strategies">
       <span class="mp-name">${esc(g.name)}</span>
       <span class="mp-bar"><span style="width:${g.win ?? 0}%"></span></span>
       <b class="mp-win">${g.win != null ? `${g.win}%` : '—'}</b>
@@ -1816,10 +1816,10 @@ function conditionsHTML(list) {
   }).join('');
   return `<section class="tile model-stats">
     <header class="tile-head"><h3>By condition</h3>
-      <button type="button" class="info-tip" data-tip="${esc(`For each model condition you ticked on your trades (for example OB in Bias, or Sweep in Entry): how many trades had it, how many of them won, and the average R.\nAvg R matters as much as Win %: 40% wins at +3R beats 60% wins at +0.5R.\nUnder ${FEW} trades the numbers can be luck.`)}" aria-label="What is By condition?">${ICON.info}</button>
+      <button type="button" class="info-tip" data-tip="${esc(`For each strategy condition you ticked on your trades (for example OB in Bias, or Sweep in Entry): how many trades had it, how many of them won, and the average R.\nAvg R matters as much as Win %: 40% wins at +3R beats 60% wins at +0.5R.\nUnder ${FEW} trades the numbers can be luck.`)}" aria-label="What is By condition?">${ICON.info}</button>
     </header>
     ${body ? `<div class="table-wrap flat"><table class="table cond-table"><thead><tr><th></th><th>Condition</th><th class="num">Trades</th><th class="num">Win %</th><th class="num">Avg R</th></tr></thead><tbody>${body}</tbody></table></div>`
-      : '<div class="tile-empty"><p>No ticks yet. Pick a model when you log a trade and tick the conditions you saw. This table fills in by itself.</p></div>'}
+      : '<div class="tile-empty"><p>No ticks yet. Pick a strategy when you log a trade and tick the conditions you saw. This table fills in by itself.</p></div>'}
   </section>`;
 }
 
@@ -1939,15 +1939,15 @@ function modelEditorHTML() {
   const g = (key) => `<div class="chips" data-me="${key}"></div>`;
   const step = (n, rows) => `<div class="su-step"><span class="su-num">${n}</span><div class="su-body">${rows.map(([label, key]) => `<div class="su-row"><span class="su-label">${label}</span>${g(key)}</div>`).join('')}</div></div>`;
   return `<form class="tile model-editor" data-model-form="${editingModel}" autocomplete="off">
-    <header class="tile-head"><h3>${editingModel === 'new' ? 'New model' : 'Edit model'}</h3></header>
-    <label>Model name <input name="name" maxlength="40" value="${esc(modelDraft.name)}" placeholder="e.g. Model 2022"></label>
-    <p class="hint">Pick what belongs to this model, in the order you trade it. When you choose the model on a new trade, these are filled in for you. You can still change them on each trade.</p>
+    <header class="tile-head"><h3>${editingModel === 'new' ? 'New strategy' : 'Edit strategy'}</h3></header>
+    <label>Strategy name <input name="name" maxlength="40" value="${esc(modelDraft.name)}" placeholder="e.g. Strategy 2022"></label>
+    <p class="hint">Pick what belongs to this strategy, in the order you trade it. When you choose the strategy on a new trade, these are filled in for you. You can still change them on each trade.</p>
     ${step(1, [['Daily target', 'dols']])}
     ${step(2, [['HTF PDA', 'pdas'], ['Timeframe', 'pda_tf']])}
     ${step(3, [['Structure', 'structure']])}
     ${step(4, [['Entry signal', 'confirmations'], ['Entry on', 'entry_tf']])}
     <p class="error" role="alert" hidden></p>
-    <div class="form-actions"><button type="button" class="btn" data-model-cancel>Cancel</button><button type="submit" class="btn btn-primary">Save model</button></div>
+    <div class="form-actions"><button type="button" class="btn" data-model-cancel>Cancel</button><button type="submit" class="btn btn-primary">Save strategy</button></div>
   </form>`;
 }
 function bindModelEditor(show) {
@@ -1970,7 +1970,7 @@ function bindModelEditor(show) {
     };
     // Xoá hẳn một lựa chọn khỏi danh sách (lệnh và model đã dùng nó vẫn giữ giá trị cũ). Dùng cho dấu × và chuột phải → Delete.
     const removeOption = async (v) => {
-      const ok = await askDialog({ title: `Remove ${esc(v)}?`, body: 'It will no longer show as an option. Trades and models that already use it keep it. You can add it again any time.', actions: [{ label: 'Remove', value: 'yes', danger: true }] });
+      const ok = await askDialog({ title: `Remove ${esc(v)}?`, body: 'It will no longer show as an option. Trades and strategies that already use it keep it. You can add it again any time.', actions: [{ label: 'Remove', value: 'yes', danger: true }] });
       if (!ok) return;
       d[key] = d[key].filter((y) => y !== v);
       paint();
@@ -2033,12 +2033,16 @@ function groupBy(rows, keysOf) {
   rows.forEach((t) => keysOf(t).forEach((k) => { if (k) { if (!m.has(k)) m.set(k, []); m.get(k).push(t); } }));
   return m;
 }
+let modelsMode = 'review'; // 'strategies' = trang Strategies (thẻ + editor), 'review' = trang Review (số liệu + Breakdown)
 let reviewTab = 'pda'; // tab đang mở trong Breakdown (mở sẵn PDA: cuối tuần/tháng xem PDA nào thắng nhiều nhất)
 const hourLabel = (time) => { const h = String(parseInt(time, 10)).padStart(2, '0'); const n = String((parseInt(time, 10) + 1) % 24).padStart(2, '0'); return `${h}:00–${n}:00`; };
 function renderModels() {
   const closedOf = (rows) => rows.filter((t) => notQuick(t) && outcomeOf(t) !== 'open');
-  const cur = reviewRange(period, reviewOffset);
-  const prev = period === 'all' ? null : reviewRange(period, reviewOffset + 1);
+  const strat = modelsMode === 'strategies';
+  // Trang Strategies luôn xem toàn bộ thời gian; trang Review theo Week/Month/All
+  const per = strat ? 'all' : period; const off = strat ? 0 : reviewOffset;
+  const cur = reviewRange(per, off);
+  const prev = per === 'all' ? null : reviewRange(per, off + 1);
   const rows = closedOf(trades.filter(cur.test));
   const prows = prev ? closedOf(trades.filter(prev.test)) : [];
   const pc = (v) => (v == null ? '—' : `${v}%`);
@@ -2058,7 +2062,7 @@ function renderModels() {
   const mg = groupBy(rows, (t) => [String(modelKey(t))]); const pmg = groupBy(prows, (t) => [String(modelKey(t))]);
   const cards = [...MODELS.map((m) => ({ id: m.id, name: m.name })),
     ...[...mg.keys()].filter((k) => k !== '0' && !MODELS.some((m) => String(m.id) === k)).map((k) => ({ id: Number(k), name: `${mg.get(k)[0].model_name} (deleted)`, gone: true })),
-    ...(mg.has('0') ? [{ id: 0, name: 'No model', none: true }] : [])];
+    ...(mg.has('0') ? [{ id: 0, name: 'No strategy', none: true }] : [])];
   const cardHTML = (c) => {
     const s = groupStat(mg.get(String(c.id)) || []); const p = pmg.has(String(c.id)) ? groupStat(pmg.get(String(c.id))) : null;
     const recipe = recipeLine(MODELS.find((m) => m.id === c.id)?.recipe);
@@ -2068,7 +2072,7 @@ function renderModels() {
       <div class="m-win"><span>${pc(s.win)}</span><small>win</small></div>
       ${bar(s.win)}
       <p class="m-line">${s.n} trade${s.n === 1 ? '' : 's'} · <span class="${tone(s.avgR)}">${rv(s.avgR)}</span> · <span class="${tone(s.net)}">${usd(s.net)}</span></p>
-      <p class="m-line">${s.n ? (fewTag(s.n) || delta(s.win, p?.win) || '&nbsp;') : '<span class="hint">No trades in this period</span>'}</p>
+      <p class="m-line">${s.n ? (fewTag(s.n) || delta(s.win, p?.win) || '&nbsp;') : `<span class="hint">${strat ? 'No trades yet' : 'No trades in this period'}</span>`}</p>
     </div>`;
   };
 
@@ -2077,11 +2081,11 @@ function renderModels() {
   const tfOfZone = (t) => (t.pda_tf || []).join(' + ');
   const TABS = [
     ['dol', '1 · Daily target', 'Which daily target does price really reach for you?', 'Daily target = where you expected price to go (PDH, PDL…). A trade with 2 targets counts in both rows.', (t) => t.dols || []],
-    ['pda', '2 · HTF PDA', 'Which PDA works best for you?', 'Counts every trade with a result, with or without a model. A trade with 2 PDAs counts in both rows.', (t) => t.pdas || []],
+    ['pda', '2 · HTF PDA', 'Which PDA works best for you?', 'Counts every trade with a result, with or without a strategy. A trade with 2 PDAs counts in both rows.', (t) => t.pdas || []],
     ['struct', '3 · Structure', 'Do you win more when structure agrees with your HTF Bias?', 'Compares trades where the structure went the same way as your HTF Bias (H1/H4) with trades where it went against it or was sideways.', (t) => { const a = alignedOf(t.htf_bias, t.m15_structure); return [a === true ? 'With HTF Bias' : t.m15_structure === 'sideways' ? 'Sideways' : a === false ? 'Against HTF Bias' : null]; }, ['With HTF Bias', 'Against HTF Bias', 'Sideways']],
     ['entry', '4 · Entry', 'Which entry works best for you?', 'Each row is your entry signal together with the timeframe you entered on, for example “MSS · M1”.', (t) => (t.confirmations || []).map((c) => (t.entry_tf ? `${c} · ${t.entry_tf}` : c))],
     // Phiên và giờ vào lệnh (13/11): lấy đúng ô Session và Time chủ dự án điền ở form lệnh. Giờ chia theo từng giờ, xếp theo thứ tự trong ngày.
-    ['session', 'Session', 'Which session works best for you?', 'Uses the Session you pick on each trade. Every trade with a result counts, with or without a model.', (t) => (t.session ? [t.session] : [])],
+    ['session', 'Session', 'Which session works best for you?', 'Uses the Session you pick on each trade. Every trade with a result counts, with or without a strategy.', (t) => (t.session ? [t.session] : [])],
     ['hour', 'Time', 'Which hour of the day works best for you?', 'Uses the Time you enter on each trade, grouped by the hour (for example 07:00–08:00). Trades without a time are left out.', (t) => (/^\d{1,2}:\d{2}/.test(t.time || '') ? [hourLabel(t.time)] : []), Array.from({ length: 24 }, (_, h) => hourLabel(`${h}:00`))],
   ];
   if (!TABS.some((x) => x[0] === reviewTab)) reviewTab = 'pda';
@@ -2103,8 +2107,8 @@ function renderModels() {
 
   app.innerHTML = `
     <div class="page-head rv-head">
-      <div><h1>Models &amp; Review</h1><p>Look back at a week or a month: which model, PDA and entry really work for you.</p></div>
-      <div class="review-bar">
+      <div>${strat ? '<h1>Strategies</h1><p>Build your strategies step by step, then see how each one performs.</p>' : '<h1>Review</h1><p>Look back at a week or a month: which strategy, PDA and entry really work for you.</p>'}</div>
+      ${strat ? '' : `<div class="review-bar">
         <div class="segmented" role="group" aria-label="Period">
           ${[['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([v, l]) => `<button type="button" data-period="${v}" class="${period === v ? 'on' : ''}" aria-pressed="${period === v}">${l}</button>`).join('')}
         </div>
@@ -2114,30 +2118,30 @@ function renderModels() {
           ${period === 'all' ? '' : `<button type="button" class="rv-arrow" data-rv="-1" aria-label="Next ${period}" ${reviewOffset === 0 ? 'disabled' : ''}>›</button>`}
           ${reviewOffset ? '<button type="button" class="btn btn-soft btn-sm" data-rv="0">Now</button>' : ''}
         </div>
-      </div>
+      </div>`}
     </div>
 
-    <section class="tile rv-summary">
+    ${strat ? '' : `<section class="tile rv-summary">
       <div><small>Trades</small><b>${all.n}</b><span class="hint">${pall ? `prev ${pall.n}` : '&nbsp;'}</span></div>
       <div><small>Win %</small><b>${pc(all.win)}</b>${pall ? delta(all.win, pall.win) || '<span class="hint">&nbsp;</span>' : '<span class="hint">&nbsp;</span>'}</div>
       <div><small>Avg R</small><b class="${tone(all.avgR)}">${rv(all.avgR)}</b><span class="hint">${pall ? `prev ${rv(pall.avgR)}` : '&nbsp;'}</span></div>
       <div><small>Net</small><b class="${tone(all.net)}">${usd(all.net)}</b><span class="hint">${pall ? `prev ${usd(pall.net)}` : '&nbsp;'}</span></div>
-    </section>
+    </section>`}
 
-    <h2 class="rv-h2">Models</h2>
+    ${strat ? `
     ${editingModel !== null && modelDraft ? modelEditorHTML() : ''}
     <div class="m-cards">
       ${cards.map(cardHTML).join('')}
-      ${editingModel === null ? '<button type="button" class="m-card m-new" data-model-new><span>+</span>New model</button>' : ''}
+      ${editingModel === null ? '<button type="button" class="m-card m-new" data-model-new><span>+</span>New strategy</button>' : ''}
     </div>
-    <p class="error rv-error" role="alert" hidden></p>
+    <p class="error rv-error" role="alert" hidden></p>` : ''}
 
-    <section class="tile rv-breakdown">
+    ${strat ? '' : `<section class="tile rv-breakdown">
       <header class="tile-head"><h3>Breakdown</h3><button type="button" class="info-tip" data-tip="${esc(`${tabInfo}\nRows marked “few” have under ${FEW} trades, so they can still be luck. Quick entries (day totals) are not counted.`)}" aria-label="What is this?">${ICON.info}</button></header>
       <div class="rv-tabs" role="tablist">${TABS.map(([k, l]) => `<button type="button" role="tab" aria-selected="${k === reviewTab}" class="${k === reviewTab ? 'on' : ''}" data-rv-tab="${k}">${l}</button>`).join('')}</div>
       <div class="rv-qbox"><p class="rv-q">${esc(tabQ)}</p>${rows.length ? bestLine : ''}</div>
       ${rows.length ? breakdown : `<div class="tile-empty"><p>No closed trades in ${esc(cur.label)}.${period !== 'all' ? ' Use ‹ to look at an earlier period.' : ''}</p></div>`}
-    </section>`;
+    </section>`}`;
 
   app.querySelectorAll('[data-period]').forEach((b) => b.addEventListener('click', () => { period = b.dataset.period; reviewOffset = 0; renderModels(); }));
   app.querySelectorAll('[data-rv]').forEach((b) => b.addEventListener('click', () => { const n = Number(b.dataset.rv); reviewOffset = n === 0 ? 0 : Math.max(0, reviewOffset + n); renderModels(); }));
@@ -2146,16 +2150,16 @@ function renderModels() {
   const show = (m) => { err.textContent = m; err.hidden = false; };
   app.querySelector('[data-model-new]')?.addEventListener('click', () => { editingModel = 'new'; modelDraft = { name: '', ...blankRecipe() }; renderModels(); app.querySelector('.model-editor')?.scrollIntoView({ block: 'center' }); app.querySelector('.model-editor input[name="name"]')?.focus(); });
   app.querySelector('[data-model-cancel]')?.addEventListener('click', () => { editingModel = null; modelDraft = null; renderModels(); });
-  bindModelEditor(show);
+  if (strat) bindModelEditor(show);
   const delModel = async (m) => {
     const used = allTrades.filter((t) => t.model_id === m.id).length;
-    const ok = await askDialog({ title: `Delete ${esc(m.name)}?`, body: used ? `${used} trade${used === 1 ? '' : 's'} used this model. They keep the name, marked “deleted”.` : 'No trades use this model yet.', actions: [{ label: 'Delete model', value: 'yes', danger: true }] });
+    const ok = await askDialog({ title: `Delete ${esc(m.name)}?`, body: used ? `${used} trade${used === 1 ? '' : 's'} used this strategy. They keep the name, marked “deleted”.` : 'No trades use this strategy yet.', actions: [{ label: 'Delete strategy', value: 'yes', danger: true }] });
     if (!ok) return;
     try {
       const at = MODELS.findIndex((x) => x.id === m.id);
       await api('/api/settings', { method: 'PUT', body: JSON.stringify({ models: MODELS.filter((x) => x.id !== m.id) }) });
       MODELS = MODELS.filter((x) => x.id !== m.id); renderModels();
-      pushUndo(`Deleted model ${m.name}`, [{ kind: 'model', m: JSON.parse(JSON.stringify(m)), i: at }]);
+      pushUndo(`Deleted strategy ${m.name}`, [{ kind: 'model', m: JSON.parse(JSON.stringify(m)), i: at }]);
     } catch (ex) { toast(ex.message); }
   };
   app.querySelectorAll('[data-model-menu]').forEach((b) => b.addEventListener('click', (ev) => {
@@ -2172,8 +2176,8 @@ function renderModels() {
     const isNew = f.dataset.modelForm === 'new';
     const name = f.name.value.trim();
     const id = isNew ? Math.max(0, ...MODELS.map((m) => m.id), ...allTrades.map((t) => t.model_id || 0)) + 1 : Number(f.dataset.modelForm);
-    if (!name) return show('Type a model name, like Model 2022.');
-    if (MODELS.some((m) => m.name.toLowerCase() === name.toLowerCase() && m.id !== id)) return show('You already have a model with this name.');
+    if (!name) return show('Type a strategy name, like Strategy 2022.');
+    if (MODELS.some((m) => m.name.toLowerCase() === name.toLowerCase() && m.id !== id)) return show('You already have a strategy with this name.');
     const recipe = {};
     for (const k of RECIPE_KEYS) { const arr = [...(modelDraft?.[k] || [])]; if (ME_CFG[k].tf) arr.sort((a, b) => ME_CFG[k].list().indexOf(a) - ME_CFG[k].list().indexOf(b)); if (arr.length) recipe[k] = arr; }
     const hasRecipe = Object.keys(recipe).length > 0;
@@ -2293,12 +2297,12 @@ function renderForm(existing, presetDate) {
           <div class="su-row"><span class="su-label">Confirmation</span><div class="chips" data-chips="confirmations"></div></div>
         </div></div>
         <div class="su-step su-extra"><span class="su-num" aria-hidden="true"></span><div class="su-body">
-          <div class="su-row"><span class="su-label">Model</span><div class="su-ctl su-inline">
-            <select name="model_id" aria-label="Model" class="su-select">
-              <option value="">No model</option>
+          <div class="su-row"><span class="su-label">Strategy</span><div class="su-ctl su-inline">
+            <select name="model_id" aria-label="Strategy" class="su-select">
+              <option value="">No strategy</option>
               ${modelOpts.map(([id, name]) => `<option value="${id}" ${id === t.model_id ? 'selected' : ''}>${esc(name)}</option>`).join('')}
             </select>
-            <a class="link" href="#/models" id="manage-models">${MODELS.length ? 'Edit models' : 'Create a model'}</a></div></div>
+            <a class="link" href="#/strategies" id="manage-models">${MODELS.length ? 'Edit strategies' : 'Create a strategy'}</a></div></div>
           <div class="su-row"><span class="su-label">Context</span><textarea name="market_context" rows="2" aria-label="Market context" placeholder="Optional. e.g. Ranging since London, swept Asia low">${esc(t.market_context || '')}</textarea></div>
         </div></div>
       </fieldset>
@@ -2431,8 +2435,8 @@ function renderForm(existing, presetDate) {
   });
   form.querySelector('#manage-models').addEventListener('click', async (e) => {
     e.preventDefault();
-    const ok = await askDialog({ title: 'Leave this trade?', body: 'What you typed here is not saved yet. Save the trade first, or leave to edit your models.', actions: [{ label: 'Leave', value: 'yes' }] });
-    if (ok) location.hash = '#/models';
+    const ok = await askDialog({ title: 'Leave this trade?', body: 'What you typed here is not saved yet. Save the trade first, or leave to edit your strategies.', actions: [{ label: 'Leave', value: 'yes' }] });
+    if (ok) location.hash = '#/strategies';
   });
 
   // Chip chọn nhiều + ô thêm chip mới
@@ -2461,7 +2465,7 @@ function renderForm(existing, presetDate) {
       e.preventDefault(); e.stopPropagation();
       const v = c.dataset.value;
       showMenu(e.clientX, e.clientY, [{ act: 'delete', label: 'Delete', danger: true }], async () => {
-        const ok = await askDialog({ title: `Remove ${esc(v)}?`, body: 'It will no longer show as an option. Trades and models that already use it keep it. You can add it again any time.', actions: [{ label: 'Remove', value: 'yes', danger: true }] });
+        const ok = await askDialog({ title: `Remove ${esc(v)}?`, body: 'It will no longer show as an option. Trades and strategies that already use it keep it. You can add it again any time.', actions: [{ label: 'Remove', value: 'yes', danger: true }] });
         if (!ok) return;
         state[key] = state[key].filter((y) => y !== v);
         removeListItem(key, v).then(paint).catch((ex) => toast(`Not saved to your list: ${ex.message}`));
@@ -2591,6 +2595,9 @@ function renderForm(existing, presetDate) {
 }
 
 // ---------- Màn hình 3: Chi tiết lệnh ----------
+// Trang chi tiết lệnh chia 4 tab (13/11): Stats · Strategy · Charts · Notes
+const DETAIL_TABS = [['stats', 'Stats'], ['strategy', 'Strategy'], ['charts', 'Charts'], ['notes', 'Notes']];
+let detailTab = 'stats';
 function renderDetail(t) {
   const row = (label, value) => `<div><dt>${label}</dt><dd>${value === '' || value == null ? '<span style="color:var(--muted)">—</span>' : value}</dd></div>`;
   const cap = (v) => (v ? v[0].toUpperCase() + v.slice(1) : '');
@@ -2610,21 +2617,37 @@ function renderDetail(t) {
           <button class="btn btn-danger" id="delete">Delete</button>
         </div>
       </div>
-      <dl class="info" style="margin:0">
+      <div class="rv-tabs dt-tabs" role="tablist">${DETAIL_TABS.map(([k, l]) => `<button type="button" role="tab" aria-selected="${k === detailTab}" class="${k === detailTab ? 'on' : ''}" data-dt-tab="${k}">${l}</button>`).join('')}</div>
+      <dl class="info dt-panel" data-dt-panel="stats" style="margin:0" ${detailTab === 'stats' ? '' : 'hidden'}>
+        ${row('Side', t.direction === 'long' ? 'Long' : t.direction === 'short' ? 'Short' : '')}
+        ${row('Symbol', esc(t.symbol || ''))}
+        ${row('Session', esc(t.session || ''))}
+        ${row('Time', esc(t.time || ''))}
+        ${row('Account', accOf(t) ? `${esc(accName(t))} <span class="hint">(${ACC_TYPES[accOf(t).type]})</span>` : '')}
         ${row('Risk', t.risk_usd != null ? `$${t.risk_usd}` : '')}
         ${row('P&amp;L', fmtUsd(t.pnl_usd))}
         ${row('Result in R', fmtRv(t.result_r))}
         ${row('Contracts', t.contracts ?? '')}
         ${row('News today?', t.news_today === 'yes' ? `High-impact news${t.news_note ? `: ${esc(t.news_note)}` : ''}` : t.news_today === 'no' ? 'No news' : '')}
+      </dl>
+      <dl class="info dt-panel" data-dt-panel="strategy" style="margin:0" ${detailTab === 'strategy' ? '' : 'hidden'}>
+        ${row('Strategy', t.model_id ? `${esc(t.model_name)}${MODELS.some((m) => m.id === t.model_id) ? '' : ' <span class="hint">(deleted)</span>'}` : '')}
         ${row('Daily target (DOL)', esc(t.dols.join(', ')))}
         ${row('HTF Bias (H1/H4)', cap(t.htf_bias))}
         ${row('HTF PDA', t.pdas?.length ? `${esc(t.pdas.join(', '))}${t.pda_tf?.length ? ` <span class="hint">on ${esc(t.pda_tf.join(' + '))}</span>` : ''}` : '')}
         ${row('Structure', t.m15_structure ? `${cap(t.m15_structure)} ${alignedOf(t.htf_bias, t.m15_structure) === true ? `<span class="mc-yes">${ICON.check}aligned</span>` : alignedOf(t.htf_bias, t.m15_structure) === false ? `<span class="mc-no-plain">${ICON.cross}not aligned</span>` : ''}` : '')}
         ${row('Entry', [t.entry_tf ? `on ${esc(t.entry_tf)}` : '', esc(t.confirmations.join(', '))].filter(Boolean).join(' · '))}
-        ${row('Model', t.model_id ? `${esc(t.model_name)}${MODELS.some((m) => m.id === t.model_id) ? '' : ' <span class="hint">(deleted)</span>'}` : '')}
         ${row('Market Context', esc(t.market_context))}
         ${t.area_of_interest ? row('Area of Interest', esc(t.area_of_interest)) : ''}
         ${t.conditions_met ? row('All 3 conditions met?', yesNo(t.conditions_met, true)) : ''}
+      </dl>
+      <div class="dt-panel" data-dt-panel="charts" ${detailTab === 'charts' ? '' : 'hidden'}>
+      ${imgs.length ? `<div class="shots-view">${imgs.map((im, i) => `
+        <figure>
+          <button type="button" class="shot-open" data-open-shot="${i}" title="Click to zoom in or draw on this chart"><span class="anno-wrap" data-marks="${esc(JSON.stringify(im.m || []))}"><img src="${esc(imgSrc(im.f))}" alt="Chart ${i + 1}"><svg class="anno-svg" aria-hidden="true"></svg></span></button>
+        </figure>`).join('')}</div>` : '<p class="hint dt-empty">No charts on this trade yet. Press Edit to add one.</p>'}
+      </div>
+      <dl class="info dt-panel" data-dt-panel="notes" style="margin:0" ${detailTab === 'notes' ? '' : 'hidden'}>
         ${row('Felt before entry', esc(t.emotions.join(', ')))}
         ${row('Followed my plan?', yesNo(t.followed_plan, true))}
         ${t.followed_plan === 'no' ? row('What made me change my plan', esc(t.plan_break_reason)) : ''}
@@ -2632,12 +2655,14 @@ function renderDetail(t) {
         ${t.hindsight ? row('Hindsight', esc(t.hindsight)) : ''}
         ${row('Lesson', esc(t.lesson))}
       </dl>
-      ${imgs.length ? `<div class="shots-view">${imgs.map((im, i) => `
-        <figure>
-          <button type="button" class="shot-open" data-open-shot="${i}" title="Click to zoom in or draw on this chart"><span class="anno-wrap" data-marks="${esc(JSON.stringify(im.m || []))}"><img src="${esc(imgSrc(im.f))}" alt="Chart ${i + 1}"><svg class="anno-svg" aria-hidden="true"></svg></span></button>
-        </figure>`).join('')}</div>` : ''}
     </div>`;
   hydrateMarks(app); // vẽ lớp nét vẽ lên ảnh chart
+  app.querySelectorAll('[data-dt-tab]').forEach((b) => b.addEventListener('click', () => {
+    detailTab = b.dataset.dtTab;
+    app.querySelectorAll('[data-dt-tab]').forEach((x) => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
+    app.querySelectorAll('[data-dt-panel]').forEach((pn) => { pn.hidden = pn.dataset.dtPanel !== detailTab; });
+    if (detailTab === 'charts') hydrateMarks(app);
+  }));
   // Bấm ảnh → xem lớn + vẽ ngay tại đây (10/11), tự lưu, không cần mở Edit
   let saveTimer = null;
   app.querySelectorAll('[data-open-shot]').forEach((b) => b.addEventListener('click', () => {
@@ -3824,7 +3849,7 @@ async function renderRoute() {
     }
     trades = applyScope(allTrades); // Dashboard, Calendar, Mindset, Trades xem theo công tắc tài khoản
     // Trang cũ đã bỏ (Calendar, Progress Tracker, Review, Mindset) → về Dashboard
-    if (['#/calendar', '#/progress', '#/review', '#/mindset'].includes(hash)) { location.replace('#/'); return; }
+    if (['#/calendar', '#/progress', '#/mindset'].includes(hash)) { location.replace('#/'); return; }
     if (hash === '#/daily') {
       setChrome('daily', [['Overview', '#/'], ['Daily Journal']]);
       return renderDaily();
@@ -3838,8 +3863,15 @@ async function renderRoute() {
       setChrome('trades', [['Overview', '#/'], ['Trades']]);
       return renderGallery();
     }
-    if (hash === '#/models') {
-      setChrome('models', [['Overview', '#/'], ['Models']]);
+    if (hash === '#/models') { location.replace('#/strategies'); return; } // tên cũ
+    if (hash === '#/strategies') {
+      setChrome('strategies', [['Overview', '#/'], ['Strategies']]);
+      modelsMode = 'strategies';
+      return renderModels();
+    }
+    if (hash === '#/review') {
+      setChrome('review', [['Overview', '#/'], ['Review']]);
+      modelsMode = 'review';
       return renderModels();
     }
     setChrome('dashboard', [['Overview', '#/'], ['Dashboard']]);

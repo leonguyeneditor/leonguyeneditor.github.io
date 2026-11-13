@@ -877,8 +877,8 @@ button.pt-cell:hover, button.pt-cell:focus-visible { outline: 2px solid var(--mu
 @media (max-width: 700px) { .check-stats { grid-template-columns: 1fr 1fr; } .check-foot { flex-wrap: wrap; } }
 @media (max-width: 900px) {
   /* 6 mục như menu bên máy tính: Dashboard, Daily, Trades, Models, Accounts, Notebook */
-  .bottom-nav { grid-template-columns: repeat(6, minmax(0, 1fr)); padding-left: 4px; padding-right: 4px; }
-  .bottom-nav a { font-size: 10.5px; gap: 3px; min-width: 0; text-align: center; }
+  .bottom-nav { grid-template-columns: repeat(7, minmax(0, 1fr)); padding-left: 4px; padding-right: 4px; }
+  .bottom-nav a { font-size: 10px; gap: 3px; min-width: 0; text-align: center; justify-content: flex-start; padding-top: 4px; line-height: 1.15; }
 }
 
 /* ---------- Hộp xác nhận + menu chuột phải (08/11) ---------- */
@@ -1579,3 +1579,12 @@ select:not([multiple]) {
 
 /* Settings → Time zone: danh sách chọn 5 múi giờ, cao bằng các nút khác (34px), thẳng lề với chữ phía trên */
 .tz-select { display: block; width: 100%; max-width: 320px; height: 38px; margin: 12px 0; }
+
+/* Trang lệnh: 4 tab (Stats · Strategy · Charts · Notes), dùng lại kiểu tab của Breakdown */
+.dt-tabs { margin: 18px 0 16px; }
+.dt-panel[hidden] { display: none; }
+.dt-empty { margin: 0; }
+@media (max-width: 640px) { .dt-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* Ô trống cuối lưới thông tin không bị tô xám (ngăn cách bằng đường kẻ của từng ô thay vì nền) */
+.dt-panel.info { background: transparent; gap: 0; border-width: 1px 0 0 1px; border-radius: 0; overflow: visible; }
+.dt-panel.info > div { box-shadow: inset -1px -1px 0 var(--line); }
