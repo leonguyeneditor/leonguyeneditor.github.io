@@ -825,7 +825,10 @@ button.pt-cell:hover, button.pt-cell:focus-visible { outline: 2px solid var(--mu
 .mc-day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .mc-day.win { background: rgba(20, 184, 166, 0.18); border-color: rgba(20, 184, 166, 0.5); }
 .mc-day.loss { background: rgba(229, 72, 77, 0.16); border-color: rgba(229, 72, 77, 0.5); }
+/* Hôm nay: viền đậm theo MÀU CỦA NGÀY (xanh nếu lời, đỏ nếu lỗ), không đè viền xanh lên ô đỏ (trước đây ô hôm nay lỗ bị nửa xanh nửa đỏ) */
 .mc-day.today { font-weight: 700; box-shadow: inset 0 0 0 1px var(--accent); }
+.mc-day.today.win { border-color: #14B8A6; box-shadow: inset 0 0 0 1px #14B8A6; }
+.mc-day.today.loss { border-color: #E5484D; box-shadow: inset 0 0 0 1px #E5484D; }
 .mc-day.has-note::after { content: ''; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent-text); }
 @media (max-width: 1150px) {
   .daily-layout { grid-template-columns: 1fr; }
