@@ -2656,9 +2656,7 @@ function renderForm(existing, presetDate) {
 }
 
 // ---------- Màn hình 3: Chi tiết lệnh ----------
-// Trang chi tiết lệnh chia 4 tab (13/11): Stats · Strategy · Charts · Notes
-const DETAIL_TABS = [['stats', 'Stats'], ['strategy', 'Strategy'], ['charts', 'Charts'], ['notes', 'Notes']];
-let detailTab = 'stats';
+// Trang chi tiết lệnh: 1 trang liền (13/11 chủ dự án bỏ 4 tab vì phải bấm qua lại, rời rạc)
 function renderDetail(t) {
   const row = (label, value) => `<div><dt>${label}</dt><dd>${value === '' || value == null ? '<span style="color:var(--muted)">—</span>' : value}</dd></div>`;
   const cap = (v) => (v ? v[0].toUpperCase() + v.slice(1) : '');
@@ -2678,37 +2676,21 @@ function renderDetail(t) {
           <button class="btn btn-danger" id="delete">Delete</button>
         </div>
       </div>
-      <div class="rv-tabs dt-tabs" role="tablist">${DETAIL_TABS.map(([k, l]) => `<button type="button" role="tab" aria-selected="${k === detailTab}" class="${k === detailTab ? 'on' : ''}" data-dt-tab="${k}">${l}</button>`).join('')}</div>
-      <dl class="info dt-panel" data-dt-panel="stats" style="margin:0" ${detailTab === 'stats' ? '' : 'hidden'}>
-        ${row('Side', t.direction === 'long' ? 'Long' : t.direction === 'short' ? 'Short' : '')}
-        ${row('Symbol', esc(t.symbol || ''))}
-        ${row('Session', esc(t.session || ''))}
-        ${row('Time', esc(t.time || ''))}
-        ${row('Account', accOf(t) ? `${esc(accName(t))} <span class="hint">(${ACC_TYPES[accOf(t).type]})</span>` : '')}
+      <dl class="info dt-panel" style="margin:0">
         ${row('Risk', t.risk_usd != null ? `$${t.risk_usd}` : '')}
         ${row('P&amp;L', fmtUsd(t.pnl_usd))}
         ${row('Result in R', fmtRv(t.result_r))}
         ${row('Contracts', t.contracts ?? '')}
         ${row('News today?', t.news_today === 'yes' ? `High-impact news${t.news_note ? `: ${esc(t.news_note)}` : ''}` : t.news_today === 'no' ? 'No news' : '')}
-      </dl>
-      <dl class="info dt-panel" data-dt-panel="strategy" style="margin:0" ${detailTab === 'strategy' ? '' : 'hidden'}>
-        ${row('Strategy', t.model_id ? `${esc(t.model_name)}${MODELS.some((m) => m.id === t.model_id) ? '' : ' <span class="hint">(deleted)</span>'}` : '')}
         ${row('Daily target (DOL)', esc(t.dols.join(', ')))}
         ${row('HTF Bias (H1/H4)', cap(t.htf_bias))}
         ${row('HTF PDA', t.pdas?.length ? `${esc(t.pdas.join(', '))}${t.pda_tf?.length ? ` <span class="hint">on ${esc(t.pda_tf.join(' + '))}</span>` : ''}` : '')}
         ${row('Structure', t.m15_structure ? `${cap(t.m15_structure)} ${alignedOf(t.htf_bias, t.m15_structure) === true ? `<span class="mc-yes">${ICON.check}aligned</span>` : alignedOf(t.htf_bias, t.m15_structure) === false ? `<span class="mc-no-plain">${ICON.cross}not aligned</span>` : ''}` : '')}
         ${row('Entry', [t.entry_tf ? `on ${esc(t.entry_tf)}` : '', esc(t.confirmations.join(', '))].filter(Boolean).join(' · '))}
+        ${row('Strategy', t.model_id ? `${esc(t.model_name)}${MODELS.some((m) => m.id === t.model_id) ? '' : ' <span class="hint">(deleted)</span>'}` : '')}
         ${row('Market Context', esc(t.market_context))}
         ${t.area_of_interest ? row('Area of Interest', esc(t.area_of_interest)) : ''}
         ${t.conditions_met ? row('All 3 conditions met?', yesNo(t.conditions_met, true)) : ''}
-      </dl>
-      <div class="dt-panel" data-dt-panel="charts" ${detailTab === 'charts' ? '' : 'hidden'}>
-      ${imgs.length ? `<div class="shots-view">${imgs.map((im, i) => `
-        <figure>
-          <button type="button" class="shot-open" data-open-shot="${i}" title="Click to zoom in or draw on this chart"><span class="anno-wrap" data-marks="${esc(JSON.stringify(im.m || []))}"><img src="${esc(imgSrc(im.f))}" alt="Chart ${i + 1}"><svg class="anno-svg" aria-hidden="true"></svg></span></button>
-        </figure>`).join('')}</div>` : '<p class="hint dt-empty">No charts on this trade yet. Press Edit to add one.</p>'}
-      </div>
-      <dl class="info dt-panel" data-dt-panel="notes" style="margin:0" ${detailTab === 'notes' ? '' : 'hidden'}>
         ${row('Felt before entry', esc(t.emotions.join(', ')))}
         ${row('Followed my plan?', yesNo(t.followed_plan, true))}
         ${t.followed_plan === 'no' ? row('What made me change my plan', esc(t.plan_break_reason)) : ''}
@@ -2716,14 +2698,12 @@ function renderDetail(t) {
         ${t.hindsight ? row('Hindsight', esc(t.hindsight)) : ''}
         ${row('Lesson', esc(t.lesson))}
       </dl>
+      ${imgs.length ? `<div class="shots-view">${imgs.map((im, i) => `
+        <figure>
+          <button type="button" class="shot-open" data-open-shot="${i}" title="Click to zoom in or draw on this chart"><span class="anno-wrap" data-marks="${esc(JSON.stringify(im.m || []))}"><img src="${esc(imgSrc(im.f))}" alt="Chart ${i + 1}"><svg class="anno-svg" aria-hidden="true"></svg></span></button>
+        </figure>`).join('')}</div>` : ''}
     </div>`;
   hydrateMarks(app); // vẽ lớp nét vẽ lên ảnh chart
-  app.querySelectorAll('[data-dt-tab]').forEach((b) => b.addEventListener('click', () => {
-    detailTab = b.dataset.dtTab;
-    app.querySelectorAll('[data-dt-tab]').forEach((x) => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
-    app.querySelectorAll('[data-dt-panel]').forEach((pn) => { pn.hidden = pn.dataset.dtPanel !== detailTab; });
-    if (detailTab === 'charts') hydrateMarks(app);
-  }));
   // Bấm ảnh → xem lớn + vẽ ngay tại đây (10/11), tự lưu, không cần mở Edit
   let saveTimer = null;
   app.querySelectorAll('[data-open-shot]').forEach((b) => b.addEventListener('click', () => {
