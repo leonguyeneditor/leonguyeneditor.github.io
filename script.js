@@ -2034,6 +2034,7 @@ function groupBy(rows, keysOf) {
   return m;
 }
 let reviewTab = 'pda'; // tab đang mở trong Breakdown (mở sẵn PDA: cuối tuần/tháng xem PDA nào thắng nhiều nhất)
+const hourLabel = (time) => { const h = String(parseInt(time, 10)).padStart(2, '0'); const n = String((parseInt(time, 10) + 1) % 24).padStart(2, '0'); return `${h}:00–${n}:00`; };
 function renderModels() {
   const closedOf = (rows) => rows.filter((t) => notQuick(t) && outcomeOf(t) !== 'open');
   const cur = reviewRange(period, reviewOffset);
@@ -2079,6 +2080,9 @@ function renderModels() {
     ['pda', '2 · HTF PDA', 'Which PDA works best for you?', 'Counts every trade with a result, with or without a model. A trade with 2 PDAs counts in both rows.', (t) => t.pdas || []],
     ['struct', '3 · Structure', 'Do you win more when structure agrees with your HTF Bias?', 'Compares trades where the structure went the same way as your HTF Bias (H1/H4) with trades where it went against it or was sideways.', (t) => { const a = alignedOf(t.htf_bias, t.m15_structure); return [a === true ? 'With HTF Bias' : t.m15_structure === 'sideways' ? 'Sideways' : a === false ? 'Against HTF Bias' : null]; }, ['With HTF Bias', 'Against HTF Bias', 'Sideways']],
     ['entry', '4 · Entry', 'Which entry works best for you?', 'Each row is your entry signal together with the timeframe you entered on, for example “MSS · M1”.', (t) => (t.confirmations || []).map((c) => (t.entry_tf ? `${c} · ${t.entry_tf}` : c))],
+    // Phiên và giờ vào lệnh (13/11): lấy đúng ô Session và Time chủ dự án điền ở form lệnh. Giờ chia theo từng giờ, xếp theo thứ tự trong ngày.
+    ['session', 'Session', 'Which session works best for you?', 'Uses the Session you pick on each trade. Every trade with a result counts, with or without a model.', (t) => (t.session ? [t.session] : [])],
+    ['hour', 'Time', 'Which hour of the day works best for you?', 'Uses the Time you enter on each trade, grouped by the hour (for example 07:00–08:00). Trades without a time are left out.', (t) => (/^\d{1,2}:\d{2}/.test(t.time || '') ? [hourLabel(t.time)] : []), Array.from({ length: 24 }, (_, h) => hourLabel(`${h}:00`))],
   ];
   if (!TABS.some((x) => x[0] === reviewTab)) reviewTab = 'pda';
   const [, tabName, tabQ, tabInfo, keysOf, order] = TABS.find((x) => x[0] === reviewTab);
