@@ -2128,6 +2128,7 @@ function renderModels() {
       <div><small>Net</small><b class="${tone(all.net)}">${usd(all.net)}</b><span class="hint">${pall ? `prev ${usd(pall.net)}` : '&nbsp;'}</span></div>
     </section>`}
 
+    ${strat && loadTradeDraft() ? `<div class="draft-banner" role="status"><span>Your trade in progress is saved. Pick up where you left off.</span><span class="draft-actions"><a class="btn btn-primary btn-sm" href="${esc(loadTradeDraft().route)}">Back to your trade</a><button type="button" class="btn btn-soft btn-sm" data-draft-discard>Discard</button></span></div>` : ''}
     ${strat ? `
     ${editingModel !== null && modelDraft ? modelEditorHTML() : ''}
     <div class="m-cards">
@@ -2143,6 +2144,7 @@ function renderModels() {
       ${rows.length ? breakdown : `<div class="tile-empty"><p>No closed trades in ${esc(cur.label)}.${period !== 'all' ? ' Use ‹ to look at an earlier period.' : ''}</p></div>`}
     </section>`}`;
 
+  app.querySelector('[data-draft-discard]')?.addEventListener('click', () => { clearTradeDraft(); renderModels(); });
   app.querySelectorAll('[data-period]').forEach((b) => b.addEventListener('click', () => { period = b.dataset.period; reviewOffset = 0; renderModels(); }));
   app.querySelectorAll('[data-rv]').forEach((b) => b.addEventListener('click', () => { const n = Number(b.dataset.rv); reviewOffset = n === 0 ? 0 : Math.max(0, reviewOffset + n); renderModels(); }));
   app.querySelectorAll('[data-rv-tab]').forEach((b) => b.addEventListener('click', () => { reviewTab = b.dataset.rvTab; renderModels(); }));
@@ -2191,11 +2193,28 @@ function renderModels() {
 }
 
 // ---------- Màn hình 2: Thêm / sửa lệnh ----------
+// ---------- Nháp lệnh đang nhập (13/11) ----------
+// Lưu trong sessionStorage (mất khi đóng tab). Chỉ khôi phục khi quay lại form TỪ trang Strategies.
+const DRAFT_KEY = 'rj-trade-draft';
+let prevRouteHash = null; // trang đứng ngay trước trang hiện tại
+function loadTradeDraft() { try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null'); } catch { return null; } }
+function clearTradeDraft() { try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* bỏ qua */ } }
+function saveTradeDraft(route, t) {
+  const body = { route, t };
+  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(body)); return true; }
+  catch { // ảnh dán quá lớn: giữ phần chữ, bỏ ảnh mới (ảnh đã lưu trên máy thì giữ vì chỉ là tên file)
+    try {
+      const keep = (t.images || []).filter((x) => !String(x.f).startsWith('data:'));
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ route, t: { ...t, images: keep }, droppedImages: true }));
+      return true;
+    } catch { return false; }
+  }
+}
 function renderForm(existing, presetDate) {
   // Lệnh mới: lấy sẵn account và risk của lệnh gần nhất cho đỡ gõ lại
   // presetDate: khi bấm "+ Add trade" từ một ngày trên lịch (ngày khác hôm nay thì để trống giờ)
   const last = trades[0] || {};
-  const t = existing || {
+  const t0 = existing || {
     date: presetDate || todayStr(), time: presetDate && presetDate !== todayStr() ? '' : nowTime(), session: last.session || 'NY AM', symbol: last.symbol || 'MNQ',
     account_id: last.account_id ?? null, risk_usd: null, direction: null, // Risk để trống: chủ dự án không muốn tự điền theo lệnh trước (13/11)
     setup_name: '', market_context: '', area_of_interest: '', confirmations: [], conditions_met: null,
@@ -2203,6 +2222,13 @@ function renderForm(existing, presetDate) {
     emotions: [], plan_break_reason: '', htf_bias: null, dols: [], news_today: null, news_note: '', hindsight: '',
     images: [],
   };
+  // Quay lại từ trang Strategies: điền lại những gì đã nhập dở
+  const draftRoute = existing ? `#/trade/${existing.id}/edit` : (location.hash || '#/new');
+  const savedDraft = loadTradeDraft();
+  const restoring = !!(savedDraft && savedDraft.route === draftRoute && (prevRouteHash || '').startsWith('#/strategies'));
+  const t = restoring ? { ...t0, ...savedDraft.t } : t0;
+  if (savedDraft) clearTradeDraft();
+  if (restoring) setTimeout(() => toast(savedDraft.droppedImages ? 'Your trade is back. Pasted images were too big to keep, add them again.' : 'Your trade is back, nothing was lost'), 0);
   const state = {
     direction: t.direction,
     conditions_met: t.conditions_met,
@@ -2302,7 +2328,7 @@ function renderForm(existing, presetDate) {
               <option value="">No strategy</option>
               ${modelOpts.map(([id, name]) => `<option value="${id}" ${id === t.model_id ? 'selected' : ''}>${esc(name)}</option>`).join('')}
             </select>
-            <a class="link" href="#/strategies" id="manage-models" target="_blank" rel="noopener" title="Opens in a new tab, so what you typed here stays">${MODELS.length ? 'Edit strategies' : 'Create a strategy'}</a></div></div>
+            <a class="link" href="#/strategies" id="manage-models">${MODELS.length ? 'Edit strategies' : 'Create a strategy'}</a></div></div>
           <div class="su-row"><span class="su-label">Context</span><textarea name="market_context" rows="2" aria-label="Market context" placeholder="Optional. e.g. Ranging since London, swept Asia low">${esc(t.market_context || '')}</textarea></div>
         </div></div>
       </fieldset>
@@ -2433,28 +2459,15 @@ function renderForm(existing, presetDate) {
     syncAligned();
     toast(`Filled in from ${m.name}`);
   });
-  // "Edit strategies" mở ở TAB MỚI (13/11) nên lệnh đang nhập dở (ngày giờ, ảnh, chip…) không mất.
-  // Khi quay lại tab này, danh sách Strategy tự cập nhật (strategy mới có mặt ngay, ô đang chọn giữ nguyên).
-  const stratSel = form.model_id; const stratLink = form.querySelector('#manage-models');
-  let stratCount = MODELS.length;
-  const refreshStrategies = async () => {
-    if (!document.body.contains(form)) { window.removeEventListener('focus', refreshStrategies); document.removeEventListener('visibilitychange', onVisible); return; }
-    try {
-      const st = await api('/api/settings');
-      MODELS = st.models || [];
-      const cur = stratSel.value;
-      const opts = MODELS.map((m) => [String(m.id), m.name]);
-      if (cur && !opts.some(([id]) => id === cur)) { const o = [...stratSel.options].find((x) => x.value === cur); opts.push([cur, o ? o.textContent : `${t.model_name} (deleted)`]); }
-      stratSel.innerHTML = `<option value="">No strategy</option>${opts.map(([id, name]) => `<option value="${id}">${esc(name)}</option>`).join('')}`;
-      stratSel.value = cur;
-      stratLink.textContent = MODELS.length ? 'Edit strategies' : 'Create a strategy';
-      if (MODELS.length > stratCount) toast('Strategy list updated');
-      stratCount = MODELS.length;
-    } catch { /* offline: giữ danh sách cũ */ }
-  };
-  const onVisible = () => { if (document.visibilityState === 'visible') refreshStrategies(); };
-  window.addEventListener('focus', refreshStrategies);
-  document.addEventListener('visibilitychange', onVisible);
+  // "Edit strategies" (13/11): hỏi Leave / Cancel; Leave thì LƯU NHÁP lệnh đang nhập (kể cả ảnh dán chưa lưu) rồi sang trang Strategies.
+  // Quay lại form (nút "Back to your trade" hoặc nút Back của trình duyệt) thì mọi thứ được điền lại.
+  form.querySelector('#manage-models').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const ok = await askDialog({ title: 'Leave this trade?', body: 'What you typed here is kept. Come back with “Back to your trade” on the Strategies page and carry on.', actions: [{ label: 'Leave', value: 'yes' }] });
+    if (!ok) return;
+    saveTradeDraft(draftRoute, draftFromForm());
+    location.hash = '#/strategies';
+  });
 
   // Chip chọn nhiều + ô thêm chip mới
   // Chip mới gõ ở "+ Add" được lưu vào danh sách chung (Settings), lần sau vẫn còn (sửa 09/11)
@@ -2573,6 +2586,23 @@ function renderForm(existing, presetDate) {
     e.preventDefault();
     addFiles(items.map((x) => x.getAsFile()), state.viewing ?? null);
   };
+
+  // Chụp lại mọi thứ đang nhập (chữ trong ô + chip + ảnh) thành dạng giống một lệnh để điền lại sau
+  function draftFromForm() {
+    const fd = new FormData(form); const f = {};
+    for (const [k, v] of fd.entries()) if (typeof v === 'string') f[k] = v;
+    return {
+      date: f.date, time: f.time, session: f.session, symbol: f.symbol,
+      account_id: f.account_id ? Number(f.account_id) : null, risk_usd: f.risk_usd ?? '', pnl_usd: f.pnl_usd ?? '', contracts: f.contracts ?? '',
+      market_context: f.market_context || '', lesson: f.lesson || '', plan_break_reason: f.plan_break_reason || '', news_note: f.news_note || '', hindsight: f.hindsight || '',
+      direction: state.direction, conditions_met: state.conditions_met, followed_plan: state.followed_plan,
+      confirmations: [...state.confirmations], mistakes: [...state.mistakes], emotions: [...state.emotions], dols: [...state.dols],
+      htf_bias: state.htf_bias, news_today: state.news_today, pdas: [...state.pdas], pda_tf: [...state.pda_tf],
+      m15_structure: state.m15_structure, entry_tf: state.entry_tf,
+      model_id: state.model?.id ?? null, model_name: state.model?.name || '', model_items: state.model?.items || [],
+      images: state.images.map((x) => ({ f: x.src, m: x.m || [] })),
+    };
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -3831,6 +3861,7 @@ async function route() {
   const hash0 = location.hash || '#/';
   const sameRoute = hash0 === lastRoute;
   const keepY = window.scrollY;
+  if (!sameRoute) prevRouteHash = lastRoute;
   lastRoute = hash0;
   await renderRoute();
   window.scrollTo(0, sameRoute ? keepY : 0);
