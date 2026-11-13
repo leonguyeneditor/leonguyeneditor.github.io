@@ -2302,7 +2302,7 @@ function renderForm(existing, presetDate) {
               <option value="">No strategy</option>
               ${modelOpts.map(([id, name]) => `<option value="${id}" ${id === t.model_id ? 'selected' : ''}>${esc(name)}</option>`).join('')}
             </select>
-            <a class="link" href="#/strategies" id="manage-models">${MODELS.length ? 'Edit strategies' : 'Create a strategy'}</a></div></div>
+            <a class="link" href="#/strategies" id="manage-models" target="_blank" rel="noopener" title="Opens in a new tab, so what you typed here stays">${MODELS.length ? 'Edit strategies' : 'Create a strategy'}</a></div></div>
           <div class="su-row"><span class="su-label">Context</span><textarea name="market_context" rows="2" aria-label="Market context" placeholder="Optional. e.g. Ranging since London, swept Asia low">${esc(t.market_context || '')}</textarea></div>
         </div></div>
       </fieldset>
@@ -2433,11 +2433,28 @@ function renderForm(existing, presetDate) {
     syncAligned();
     toast(`Filled in from ${m.name}`);
   });
-  form.querySelector('#manage-models').addEventListener('click', async (e) => {
-    e.preventDefault();
-    const ok = await askDialog({ title: 'Leave this trade?', body: 'What you typed here is not saved yet. Save the trade first, or leave to edit your strategies.', actions: [{ label: 'Leave', value: 'yes' }] });
-    if (ok) location.hash = '#/strategies';
-  });
+  // "Edit strategies" mở ở TAB MỚI (13/11) nên lệnh đang nhập dở (ngày giờ, ảnh, chip…) không mất.
+  // Khi quay lại tab này, danh sách Strategy tự cập nhật (strategy mới có mặt ngay, ô đang chọn giữ nguyên).
+  const stratSel = form.model_id; const stratLink = form.querySelector('#manage-models');
+  let stratCount = MODELS.length;
+  const refreshStrategies = async () => {
+    if (!document.body.contains(form)) { window.removeEventListener('focus', refreshStrategies); document.removeEventListener('visibilitychange', onVisible); return; }
+    try {
+      const st = await api('/api/settings');
+      MODELS = st.models || [];
+      const cur = stratSel.value;
+      const opts = MODELS.map((m) => [String(m.id), m.name]);
+      if (cur && !opts.some(([id]) => id === cur)) { const o = [...stratSel.options].find((x) => x.value === cur); opts.push([cur, o ? o.textContent : `${t.model_name} (deleted)`]); }
+      stratSel.innerHTML = `<option value="">No strategy</option>${opts.map(([id, name]) => `<option value="${id}">${esc(name)}</option>`).join('')}`;
+      stratSel.value = cur;
+      stratLink.textContent = MODELS.length ? 'Edit strategies' : 'Create a strategy';
+      if (MODELS.length > stratCount) toast('Strategy list updated');
+      stratCount = MODELS.length;
+    } catch { /* offline: giữ danh sách cũ */ }
+  };
+  const onVisible = () => { if (document.visibilityState === 'visible') refreshStrategies(); };
+  window.addEventListener('focus', refreshStrategies);
+  document.addEventListener('visibilitychange', onVisible);
 
   // Chip chọn nhiều + ô thêm chip mới
   // Chip mới gõ ở "+ Add" được lưu vào danh sách chung (Settings), lần sau vẫn còn (sửa 09/11)
