@@ -857,11 +857,11 @@ function renderDashboard() {
     </div>
 
     <div class="tile-grid">
-      ${tile('Reset Score', 'One score from 0 to 100, made from 6 numbers.\nHover or tap each label on the chart to see what it means and your own number.\nIt sums up your results. It is not a grade of you as a trader, and it needs 20+ trades to mean much.', `
+      ${tile('Score', 'One score from 0 to 100, made from 6 numbers.\nHover or tap each label on the chart to see what it means and your own number.\nIt sums up your results. It is not a grade of you as a trader, and it needs 20+ trades to mean much.', `
         ${rs.score == null ? '<div class="tile-empty"><p>No trades in this period.</p></div>' : `
         ${radarHTML(rs.axes)}
         <div class="score-foot">
-          <div><small>Your Reset Score</small><b>${Math.round(rs.score)}</b></div>
+          <div><small>Your Score</small><b>${Math.round(rs.score)}</b></div>
           <div class="score-scale">
             <div class="bar"><span style="width:${rs.score}%"></span></div>
             <div class="scale-nums"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span></div>
