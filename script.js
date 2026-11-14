@@ -488,6 +488,27 @@ function planTrackerHTML() {
     </div>`;
 }
 
+// ---------- Dải thẻ tài khoản đầu Dashboard (14/11): nhìn sơ qua mọi tài khoản, bấm để chuyển ----------
+function accStripHTML() {
+  const list = accounts.filter((a) => a.status === 'active' || allTrades.some((t) => t.account_id === a.id));
+  const loose = allTrades.filter((t) => t.account_id == null).length;
+  const nag = loose ? `<p class="notice acc-nag">${ICON.alert}<span>${loose} trade${loose === 1 ? ' has' : 's have'} no account, so ${loose === 1 ? 'it is' : 'they are'} not counted anywhere.</span><a class="link" href="#/trades" data-fix-loose>Fix</a></p>` : '';
+  if (!list.length) return nag;
+  const money = (v) => `$${Math.round(v).toLocaleString('en-US')}`;
+  const inScope = (a) => (scope === `acc:${a.id}` || (scope === 'real' && a.type === 'personal') || (scope === 'demo' && a.type === 'demo') || (scope === 'prop' && isProp(a)));
+  return `${nag}<div class="acc-strip" role="list">${list.map((a) => {
+    const rows = allTrades.filter((t) => t.account_id === a.id);
+    const pnl = rows.reduce((sum, t) => sum + (t.pnl_usd || 0), 0);
+    const n = rows.reduce((sum, t) => sum + (t.quick ? (t.trade_count || 1) : 1), 0);
+    const bal = a.starting_balance != null ? money(a.starting_balance + pnl) : '—';
+    return `<button type="button" role="listitem" class="acc-chip ${inScope(a) ? 'on' : ''}" data-acc-pick="${a.id}" aria-pressed="${inScope(a)}">
+      <span class="acc-chip-top"><b>${esc(a.name)}</b><small>${ACC_TYPES[a.type]}</small></span>
+      <span class="acc-chip-bal">${bal}</span>
+      <span class="acc-chip-pnl"><span class="${pnl > 0 ? 'win' : pnl < 0 ? 'loss' : ''}">${fmtUsd(pnl) || '$0'}</span> · ${n} trade${n === 1 ? '' : 's'}</span>
+    </button>`;
+  }).join('')}</div>`;
+}
+
 // ---------- Account balance: số dư = số dư ban đầu + tổng P&L của tài khoản ----------
 function balanceHTML() {
   const inScope = accounts.filter((a) => (scope === 'all' ? true
@@ -836,7 +857,7 @@ function renderDashboard() {
         </div>
       </div>
     </div>
-
+    ${accStripHTML()}
 
     <div class="kpi-row">
       ${tile(`Net P&amp;L <span class="count" title="Closed trades">${countTrades(closed)}</span>`, `Net P&L = everything you made minus everything you lost (${periodName}).\nExample: +$334, +$60 and −$154 → +$240.\nThe small number next to the title is how many trades.`, `
@@ -896,6 +917,12 @@ function renderDashboard() {
   noteMsg = '';
 
   app.querySelectorAll('[data-period]').forEach((btn) => btn.addEventListener('click', () => { period = btn.dataset.period; renderDashboard(); }));
+  app.querySelectorAll('[data-acc-pick]').forEach((btn) => btn.addEventListener('click', () => {
+    scope = `acc:${btn.dataset.accPick}`;
+    try { localStorage.setItem('rj-scope', scope); } catch { /* bỏ qua */ }
+    renderScopeSwitch(); route();
+  }));
+  app.querySelector('[data-fix-loose]')?.addEventListener('click', () => { filters = { setup: '', account: '__none', mistake: '', outcome: '', plan: '' }; });
   app.querySelectorAll('[data-unit]').forEach((btn) => btn.addEventListener('click', () => { chartUnit = btn.dataset.unit; renderDashboard(); }));
   app.querySelectorAll('[data-shift]').forEach((btn) => btn.addEventListener('click', () => {
     const n = Number(btn.dataset.shift);
@@ -1257,18 +1284,28 @@ function scopeLabel() {
   if (scope === 'prop') return 'Prop accounts';
   return (accounts.find((a) => `acc:${a.id}` === scope)?.name || 'Account');
 }
+// 14/11 (chủ dự án): bỏ "All accounts" vì gộp mọi tài khoản dễ rối. Đang ở All (hoặc tài khoản đã xoá) thì tự chuyển sang
+// tài khoản có lệnh gần nhất, không có thì tài khoản đang mở đầu tiên. Chưa có tài khoản nào thì vẫn tính tất cả.
+function fixScope() {
+  const valid = scope.startsWith('acc:') ? accounts.some((a) => `acc:${a.id}` === scope) : ['real', 'demo', 'prop'].includes(scope);
+  if (valid || !accounts.length) return;
+  const last = [...allTrades].filter((t) => t.account_id != null && accounts.some((a) => a.id === t.account_id)).sort((a, z) => byTime(z, a))[0];
+  const pick = last ? last.account_id : (accounts.find((a) => a.status === 'active') || accounts[0]).id;
+  scope = `acc:${pick}`;
+  try { localStorage.setItem('rj-scope', scope); } catch { /* bỏ qua */ }
+}
 function renderScopeSwitch() {
   const sel = document.getElementById('scope');
-  if (scope.startsWith('acc:') && !accounts.some((a) => `acc:${a.id}` === scope)) scope = 'all';
+  fixScope();
+  if (!accounts.length) { sel.innerHTML = '<option value="all">No accounts yet</option><option value="manage">Manage accounts…</option>'; sel.value = 'all'; sel.classList.remove('on'); return; }
   sel.innerHTML = `
-    <option value="all">All accounts</option>
     <option value="real">Live (real money)</option>
     <option value="demo">Demo (practice)</option>
     <option value="prop">Prop</option>
     ${accounts.length ? `<optgroup label="One account">${accounts.map((a) => `<option value="acc:${a.id}">${esc(a.name)}</option>`).join('')}</optgroup>` : ''}
     <option value="manage">Manage accounts…</option>`;
   sel.value = scope;
-  sel.classList.toggle('on', scope !== 'all');
+  sel.classList.add('on');
 }
 document.getElementById('scope').addEventListener('change', (e) => {
   if (e.target.value === 'manage') { e.target.value = scope; location.hash = '#/accounts'; return; }
@@ -1772,7 +1809,7 @@ function renderGallery() {
   const list = trades.filter((t) =>
     matchesSearch(t) &&
     (!filters.setup || (filters.setup === '__none' ? !t.model_id && !t.quick : (t.model_name || t.setup_name) === filters.setup)) &&
-    (!filters.account || String(t.account_id) === filters.account) &&
+    (!filters.account || (filters.account === '__none' ? t.account_id == null : String(t.account_id) === filters.account)) &&
     (!filters.mistake || t.mistakes.includes(filters.mistake)) &&
     (!filters.outcome || outcomeOf(t) === filters.outcome) &&
     (!filters.plan || t.followed_plan === filters.plan));
@@ -1791,7 +1828,7 @@ function renderGallery() {
     ${trades.length ? `
     <div class="filters">
       ${select('setup', 'All strategies', [...[...new Set(trades.map((t) => t.model_name || t.setup_name).filter(Boolean))].sort().map((s) => [s, s]), ['__none', 'No strategy']])}
-      ${select('account', 'All accounts', accounts.map((a) => [String(a.id), a.name]))}
+      ${select('account', 'All accounts', [...accounts.map((a) => [String(a.id), a.name]), ...(allTrades.some((t) => t.account_id == null) ? [['__none', 'No account']] : [])])}
       ${select('mistake', 'All mistakes', MISTAKES.map((m) => [m, m]))}
       ${select('outcome', 'Win / Loss', [['win', 'Wins'], ['loss', 'Losses'], ['flat', 'Breakeven'], ['open', 'Open']])}
       ${select('plan', 'Followed plan?', [['yes', 'Followed plan'], ['no', 'Broke plan']])}
@@ -1806,7 +1843,8 @@ function renderGallery() {
   `;
   bindGallerySelect();
   app.querySelectorAll('[data-filter]').forEach((sel) => {
-    sel.addEventListener('change', () => { filters[sel.dataset.filter] = sel.value; renderGallery(); });
+    // Đổi ô tài khoản thì dựng lại theo route (ra/vào chế độ "No account" thì danh sách lệnh gốc khác nhau)
+    sel.addEventListener('change', () => { filters[sel.dataset.filter] = sel.value; if (sel.dataset.filter === 'account') route(); else renderGallery(); });
   });
   app.querySelector('#clear-search')?.addEventListener('click', (e) => {
     e.preventDefault(); searchText = ''; document.querySelector('#search input').value = ''; renderGallery();
@@ -4080,6 +4118,7 @@ async function renderRoute() {
       return renderNotebook();
     }
     if (hash === '#/trades') {
+      if (filters.account === '__none') trades = allTrades; // đang xem lệnh chưa gắn tài khoản
       setChrome('trades', [['Overview', '#/'], ['Trades']]);
       return renderGallery();
     }

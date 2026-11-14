@@ -107,6 +107,9 @@
     // Dashboard
     ['Week', 'Tuần', 'Semana', 'Semana', 'Minggu'],
     ['Weekly', 'Theo tuần', 'Semanal', 'Semanal', 'Mingguan'],
+    ['No account', 'Không có tài khoản', 'Sin cuenta', 'Sem conta', 'Tanpa akun'],
+    ['No accounts yet', 'Chưa có tài khoản', 'Aún no hay cuentas', 'Ainda sem contas', 'Belum ada akun'],
+    ['Fix', 'Sửa', 'Arreglar', 'Corrigir', 'Perbaiki'],
     ['Year', 'Năm', 'Año', 'Ano', 'Tahun'],
     ['Click a month to open it', 'Bấm vào một tháng để mở', 'Haz clic en un mes para abrirlo', 'Clique em um mês para abri-lo', 'Klik bulan untuk membukanya'],
     ['Previous year', 'Năm trước', 'Año anterior', 'Ano anterior', 'Tahun sebelumnya'],
@@ -534,6 +537,7 @@
       es: `Va a la Papelera por 30 días.${m[1] ? ` Sus ${m[1]} operaciones pasan a Sin estrategia hasta que la restaures.` : ''} Pulsa ${m[2]}Z para recuperarla.`,
       pt: `Vai para a Lixeira por 30 dias.${m[1] ? ` Suas ${m[1]} operações vão para Sem estratégia até você restaurá-la.` : ''} Aperte ${m[2]}Z para recuperar.`,
       id: `Masuk ke Sampah selama 30 hari.${m[1] ? ` ${m[1]} trade-nya pindah ke Tanpa strategi sampai kamu memulihkannya.` : ''} Tekan ${m[2]}Z untuk mengembalikan.` })],
+    [/^(\d+) trades? (?:has|have) no account, so (?:it is|they are) not counted anywhere\.$/, (m) => ({ vi: `${m[1]} lệnh chưa có tài khoản nên không được tính ở đâu cả.`, es: `${m[1]} operación(es) sin cuenta, así que no cuentan en ningún lado.`, pt: `${m[1]} operação(ões) sem conta, então não contam em lugar nenhum.`, id: `${m[1]} trade belum punya akun, jadi tidak dihitung di mana pun.` })],
     [/^Restored strategy (.+)$/, (m) => ({ vi: `Đã khôi phục chiến lược ${m[1]}`, es: `Estrategia ${m[1]} restaurada`, pt: `Estratégia ${m[1]} restaurada`, id: `Strategi ${m[1]} dipulihkan` })],
     [/^Restored (.+)\. Its recipe was not kept, click the card to fill it in again\.$/, (m) => ({ vi: `Đã khôi phục ${m[1]}. Công thức cũ không còn, bấm vào thẻ để điền lại.`, es: `${m[1]} restaurada. La receta no se guardó, haz clic en la tarjeta para rellenarla.`, pt: `${m[1]} restaurada. A receita não foi mantida, clique no cartão para preenchê-la.`, id: `${m[1]} dipulihkan. Resepnya tidak tersimpan, klik kartu untuk mengisinya lagi.` })],
     [/^Move (\d+) trades? to No strategy\?$/, (m) => ({ vi: `Chuyển ${m[1]} lệnh sang Không chiến lược?`, es: `¿Mover ${m[1]} operaciones a Sin estrategia?`, pt: `Mover ${m[1]} operações para Sem estratégia?`, id: `Pindahkan ${m[1]} trade ke Tanpa strategi?` })],
