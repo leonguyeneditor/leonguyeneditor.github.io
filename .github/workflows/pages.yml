@@ -1,4 +1,7 @@
-# Đăng trang lên GitHub Pages. Push nhiều lần liên tiếp thì các lần sau XẾP HÀNG chờ, không huỷ lần đang đăng (huỷ giữa chừng làm GitHub kẹt "in progress deployment").
+# Đăng trang lên GitHub Pages.
+# - Push nhiều lần liên tiếp: các lần sau XẾP HÀNG chờ, không huỷ lần đang đăng.
+# - GitHub đôi khi vẫn coi lượt trước là "in progress" vài phút sau khi nó đã xong,
+#   nên bước đăng TỰ THỬ LẠI: lỗi thì chờ 3 phút thử lần 2, rồi chờ 6 phút thử lần 3.
 name: Deploy site
 on:
   push:
@@ -16,11 +19,23 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.try3.outputs.page_url || steps.try2.outputs.page_url || steps.try1.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
-      - id: deployment
+      - id: try1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - if: steps.try1.outcome == 'failure'
+        run: sleep 180
+      - id: try2
+        if: steps.try1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - if: steps.try1.outcome == 'failure' && steps.try2.outcome == 'failure'
+        run: sleep 360
+      - id: try3
+        if: steps.try1.outcome == 'failure' && steps.try2.outcome == 'failure'
         uses: actions/deploy-pages@v4
