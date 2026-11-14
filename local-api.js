@@ -326,6 +326,22 @@
     await save();
     return json(clone(old));
   });
+  // Chỉ đổi strategy của 1 lệnh. Giống server.js.
+  on('PUT', '/api/trades/(\\d+)/strategy', async ([id], body) => {
+    const old = state.trades.find((x) => x.id === Number(id));
+    if (!old || old.deleted_at) notFound('Trade not found');
+    const b = body || {};
+    const mid = b.model_id === '' || b.model_id == null ? null : Number(b.model_id);
+    if (mid !== null && !(Number.isInteger(mid) && mid > 0)) bad('Invalid strategy');
+    const strs = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, 60) : []);
+    old.model_id = mid;
+    old.model_name = mid === null ? null : (typeof b.model_name === 'string' && b.model_name.trim().slice(0, 40)) || 'Strategy';
+    old.model_items = mid === null ? [] : strs(b.model_items);
+    old.model_checks = mid === null ? [] : strs(b.model_checks).filter((x) => old.model_items.includes(x));
+    old.updated_at = now();
+    await save();
+    return json(clone(old));
+  });
   on('PUT', '/api/trades/(\\d+)/marks', async ([id], body) => {
     const old = state.trades.find((x) => x.id === Number(id));
     if (!old || old.deleted_at) notFound('Trade not found');

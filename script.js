@@ -1706,7 +1706,7 @@ function matchesSearch(t) {
 function renderGallery() {
   const list = trades.filter((t) =>
     matchesSearch(t) &&
-    (!filters.setup || (t.model_name || t.setup_name) === filters.setup) &&
+    (!filters.setup || (filters.setup === '__none' ? !t.model_id && !t.quick : (t.model_name || t.setup_name) === filters.setup)) &&
     (!filters.account || String(t.account_id) === filters.account) &&
     (!filters.mistake || t.mistakes.includes(filters.mistake)) &&
     (!filters.outcome || outcomeOf(t) === filters.outcome) &&
@@ -1725,7 +1725,7 @@ function renderGallery() {
     </div>
     ${trades.length ? `
     <div class="filters">
-      ${select('setup', 'All strategies', [...new Set(trades.map((t) => t.model_name || t.setup_name).filter(Boolean))].sort().map((s) => [s, s]))}
+      ${select('setup', 'All strategies', [...[...new Set(trades.map((t) => t.model_name || t.setup_name).filter(Boolean))].sort().map((s) => [s, s]), ['__none', 'No strategy']])}
       ${select('account', 'All accounts', accounts.map((a) => [String(a.id), a.name]))}
       ${select('mistake', 'All mistakes', MISTAKES.map((m) => [m, m]))}
       ${select('outcome', 'Win / Loss', [['win', 'Wins'], ['loss', 'Losses'], ['flat', 'Breakeven'], ['open', 'Open']])}
@@ -2074,8 +2074,9 @@ function renderModels() {
   const cardHTML = (c) => {
     const s = groupStat(mg.get(String(c.id)) || []); const p = pmg.has(String(c.id)) ? groupStat(pmg.get(String(c.id))) : null;
     const recipe = recipeLine(MODELS.find((m) => m.id === c.id)?.recipe);
-    return `<div class="m-card ${c.none ? 'none' : ''} ${editingModel === c.id ? 'is-editing' : ''}">
-      <header><b title="${esc(c.name)}">${esc(c.name)}</b>${c.none || c.gone ? '' : `<button type="button" class="m-more" data-model-menu="${c.id}" aria-label="Options for ${esc(c.name)}">⋯</button>`}</header>
+    const tip = c.none ? 'See these trades and pick a strategy for each' : c.gone ? 'Restore this strategy or move its trades to No strategy' : 'Click to edit this strategy';
+    return `<div class="m-card ${c.none ? 'none' : ''} ${c.gone ? 'gone' : ''} ${editingModel === c.id ? 'is-editing' : ''}" ${strat ? `data-card="${c.none ? 'none' : c.gone ? 'gone' : 'edit'}" data-card-id="${c.id}" role="button" tabindex="0" title="${tip}"` : ''}>
+      <header><b title="${esc(c.name)}">${esc(c.name)}</b>${c.none ? '' : `<button type="button" class="m-more" ${c.gone ? `data-gone-menu="${c.id}"` : `data-model-menu="${c.id}"`} aria-label="Options for ${esc(c.name)}">⋯</button>`}</header>
       <p class="m-recipe" ${recipe ? `title="${esc(recipe)}"` : 'aria-hidden="true"'}>${recipe ? esc(recipe) : '&nbsp;'}</p>
       <div class="m-win"><span>${pc(s.win)}</span><small>win</small></div>
       ${bar(s.win)}
@@ -2172,15 +2173,60 @@ function renderModels() {
       pushUndo(`Deleted strategy ${m.name}`, [{ kind: 'model', m: JSON.parse(JSON.stringify(m)), i: at }]);
     } catch (ex) { toast(ex.message); }
   };
+  const editModel = (m) => { editingModel = m.id; modelDraft = { name: m.name, ...blankRecipe(), ...JSON.parse(JSON.stringify(m.recipe || {})) }; renderModels(); app.querySelector('.model-editor')?.scrollIntoView({ block: 'center' }); app.querySelector('.model-editor input[name="name"]')?.select(); };
   app.querySelectorAll('[data-model-menu]').forEach((b) => b.addEventListener('click', (ev) => {
     ev.stopPropagation(); // không để cú bấm này đóng luôn menu vừa mở
     const m = MODELS.find((x) => x.id === Number(b.dataset.modelMenu));
     const r = b.getBoundingClientRect();
     showMenu(r.left, r.bottom + 4, [{ act: 'edit', label: 'Edit' }, { act: 'delete', label: 'Delete', danger: true }], (act) => {
-      if (act === 'edit') { editingModel = m.id; modelDraft = { name: m.name, ...blankRecipe(), ...JSON.parse(JSON.stringify(m.recipe || {})) }; renderModels(); app.querySelector('.model-editor')?.scrollIntoView({ block: 'center' }); app.querySelector('.model-editor input[name="name"]')?.select(); }
+      if (act === 'edit') editModel(m);
       if (act === 'delete') delModel(m);
     });
   }));
+  // Strategy đã xoá nhưng còn lệnh dùng (14/11): tạo lại cùng tên, hoặc gỡ các lệnh về "No strategy" (có ⌘Z)
+  const goneTrades = (id) => allTrades.filter((t) => t.model_id === id);
+  const restoreGone = async (id) => {
+    const ts = goneTrades(id); if (!ts.length) return;
+    const src = ts.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+    let name = src.model_name || 'Strategy';
+    if (MODELS.some((m) => m.name.toLowerCase() === name.toLowerCase())) name = `${name} (restored)`;
+    const next = [...MODELS, { id, name, items: [...(src.model_items || [])] }];
+    try {
+      await api('/api/settings', { method: 'PUT', body: JSON.stringify({ models: next }) });
+      MODELS = next; renderModels();
+      pushUndo(`Restored strategy ${name}`, [{ kind: 'unmodel', id }]);
+      toast(`Restored ${name}. Its recipe was not kept, click the card to fill it in again.`);
+    } catch (ex) { toast(ex.message); }
+  };
+  const clearGone = async (id) => {
+    const ts = goneTrades(id); if (!ts.length) return;
+    const name = ts[0].model_name || 'this strategy';
+    const ok = await askDialog({ title: `Move ${ts.length} trade${ts.length === 1 ? '' : 's'} to No strategy?`, body: `These trades will no longer show “${esc(name)} (deleted)”. Everything else on them stays the same. You can undo with ⌘Z.`, actions: [{ label: 'Move to No strategy', value: 'yes' }] });
+    if (!ok) return;
+    const undo = [];
+    try {
+      for (const t of ts) {
+        await api(`/api/trades/${t.id}/strategy`, { method: 'PUT', body: JSON.stringify({ model_id: null }) });
+        undo.push({ kind: 'tmodel', id: t.id, model_id: t.model_id, model_name: t.model_name, model_items: t.model_items || [], model_checks: t.model_checks || [] });
+      }
+    } catch (ex) { toast(ex.message); }
+    if (undo.length) pushUndo(`Moved ${undo.length} trade${undo.length === 1 ? '' : 's'} to No strategy`, undo);
+    await loadTrades(); trades = applyScope(allTrades); renderModels();
+  };
+  const goneMenu = (id, x, y) => showMenu(x, y, [{ act: 'restore', label: 'Restore strategy' }, { act: 'clear', label: 'Move trades to No strategy' }], (act) => { if (act === 'restore') restoreGone(id); if (act === 'clear') clearGone(id); });
+  app.querySelectorAll('[data-gone-menu]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); const r = b.getBoundingClientRect(); goneMenu(Number(b.dataset.goneMenu), r.left, r.bottom + 4); }));
+  // Bấm cả thẻ (14/11): strategy → mở Edit; đã xoá → menu Restore / Move; No strategy → trang Trades lọc lệnh chưa có strategy
+  app.querySelectorAll('[data-card]').forEach((card) => {
+    const open = (ev) => {
+      if (ev.target.closest('button, a, input, select')) return;
+      const id = Number(card.dataset.cardId); const kind = card.dataset.card;
+      if (kind === 'edit') { const m = MODELS.find((x) => x.id === id); if (m) editModel(m); }
+      else if (kind === 'gone') { ev.stopPropagation(); const r = card.getBoundingClientRect(); goneMenu(id, r.left + 16, r.top + 48); }
+      else { filters = { setup: '__none', account: '', mistake: '', outcome: '', plan: '' }; location.hash = '#/trades'; }
+    };
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(ev); } });
+  });
   app.querySelectorAll('[data-model-form]').forEach((f) => f.addEventListener('submit', async (e) => {
     e.preventDefault();
     const isNew = f.dataset.modelForm === 'new';
@@ -3494,7 +3540,11 @@ async function undoLast() {
     const listItems = last.items.filter((i) => i.kind === 'listitem');
     const modelItems = last.items.filter((i) => i.kind === 'model');
     const resultItems = last.items.filter((i) => i.kind === 'result');
-    const trashItems = rest.filter((i) => i.kind !== 'listitem' && i.kind !== 'model' && i.kind !== 'result');
+    const tmodelItems = last.items.filter((i) => i.kind === 'tmodel');
+    const unmodelItems = last.items.filter((i) => i.kind === 'unmodel');
+    const trashItems = rest.filter((i) => !['listitem', 'model', 'result', 'tmodel', 'unmodel'].includes(i.kind));
+    for (const it of tmodelItems) await api(`/api/trades/${it.id}/strategy`, { method: 'PUT', body: JSON.stringify({ model_id: it.model_id, model_name: it.model_name, model_items: it.model_items, model_checks: it.model_checks }) });
+    if (unmodelItems.length) { const ids = unmodelItems.map((i) => i.id); const next = MODELS.filter((m) => !ids.includes(m.id)); await api('/api/settings', { method: 'PUT', body: JSON.stringify({ models: next }) }); MODELS = next; }
     for (const it of resultItems) await api(`/api/trades/${it.id}/result`, { method: 'PUT', body: JSON.stringify({ pnl_usd: it.pnl, result_r: it.r }) });
     for (const m of moves) await api(`/api/trades/${m.id}/date`, { method: 'PUT', body: JSON.stringify({ date: m.from }) });
     // Lựa chọn đã xoá khỏi danh sách: đặt lại đúng vị trí cũ
