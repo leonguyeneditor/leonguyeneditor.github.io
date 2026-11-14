@@ -1664,7 +1664,7 @@ function calGridHTML({ weeks, monthName }) {
               data-day="${d.key}" ${st.n ? 'draggable="true" title="Drag onto another day to move these trades"' : ''} aria-label="${d.key}${st.n ? `, ${st.n} trades` : ''}${notes[d.key] ? ', has a note' : ''}">
               <span class="cal-num">${d.day}${notes[d.key] ? `<i class="cal-note" title="Has a note">${ICON.note}</i>` : ''}</span>${statLines(st)}</button>`;
           }).join('')}
-          <div class="cal-week ${statTone(w.stat)}" role="gridcell"><span class="cal-num">Week ${i + 1}</span>${w.stat.n ? statLines(w.stat) : '<small>—</small>'}</div>
+          <div class="cal-week ${statTone(w.stat)}" role="gridcell"><span class="cal-num">Week ${i + 1}</span>${w.stat.n ? statLines(w.stat) : '<small class="cal-dash">—</small>'}</div>
         </div>`).join('')}
     </div>`;
 }
