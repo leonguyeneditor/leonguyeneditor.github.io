@@ -885,7 +885,7 @@ function renderDashboard() {
           </tr>`).join('')}</tbody>
         </table></div>` : '<div class="tile-empty"><p>No trades yet.</p><a class="btn btn-soft" href="#/new">+ New trade</a></div>', '', '<a class="link tile-link" href="#/trades">View all</a>')}
       ${tile('Account balance', 'Account balance = starting balance + the $ result of every trade in that account.\nSet the starting balance in Accounts (top bar → Manage accounts).', balanceHTML())}
-      ${tile('Strategy Performance', `Win % of each of your strategies (${periodName}): trades that made money ÷ all closed trades of that strategy.\nExample: Strategy 1 won 6 of 10 trades → 60%.\n“few” = under ${FEW} trades, so the number can still be luck.\nQuick entries (day totals) are not counted. Click a row for the full table.`, modelPerfHTML(list), 'mp-tile', '<a class="link tile-link" href="#/strategies">Strategies</a>')}
+      ${tile('Strategy Performance', `Win % of each of your strategies (${periodName}): trades that made money ÷ all closed trades of that strategy.\nExample: Strategy 1 won 6 of 10 trades → 60%.\nQuick entries (day totals) are not counted. Click a row for the full table.`, modelPerfHTML(list), 'mp-tile', '<a class="link tile-link" href="#/strategies">Strategies</a>')}
     </div>
 
     <section class="tile cal-tile" id="cal-section">
@@ -1864,7 +1864,7 @@ function modelGroups(list) {
     .filter((g) => g.id || g.n); // "No model" chỉ hiện khi có lệnh
 }
 const FEW = 20; // dưới 20 lệnh: chưa đủ để tin
-const fewTag = (n) => (n && n < FEW ? `<span class="few" title="Under ${FEW} trades: too few to trust yet">${ICON.alert}few</span>` : '');
+const fewTag = () => ''; // 14/11: chủ dự án bỏ nhãn "few" (dưới 20 lệnh) ở mọi nơi
 
 function modelPerfHTML(list) {
   const gs = modelGroups(list);
@@ -2163,7 +2163,7 @@ function renderModels() {
     </div>`;
   const bestOf = (g, keys, nameOf) => { if (!keys.length) return ''; const k = keys.slice().sort(byWin(g))[0]; const st = groupStat(g.get(k)); return `Best: <b>${esc(nameOf(k))}</b> · ${pc(st.win)} win · ${st.n} trade${st.n === 1 ? '' : 's'} ${fewTag(st.n)}`; };
   const block = (num, title, info, lead, body) => `<section class="tile rv-block">
-      <header class="tile-head"><h3>${num} · ${title}</h3><button type="button" class="info-tip" data-tip="${esc(`${info}\nRows marked “few” have under ${FEW} trades, so they can still be luck. Quick entries (day totals) are not counted.`)}" aria-label="What is this?">${ICON.info}</button></header>
+      <header class="tile-head"><h3>${num} · ${title}</h3><button type="button" class="info-tip" data-tip="${esc(`${info}\nQuick entries (day totals) are not counted.`)}" aria-label="What is this?">${ICON.info}</button></header>
       ${lead ? `<p class="rv-lead">${lead}</p>` : ''}
       ${body}
     </section>`;
