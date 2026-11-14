@@ -509,12 +509,10 @@ function balanceHTML() {
     return { a, pnl, n, bal: a.starting_balance != null ? a.starting_balance + pnl : null };
   });
   const money = (v) => `$${Math.round(v).toLocaleString('en-US')}`;
-  const cur = rows.filter((r) => inScope(r.a) && r.bal != null);
-  const big = cur.length ? money(cur.reduce((sum, r) => sum + r.bal, 0)) : '—';
-  return `<div class="bal-total">${big}</div>
-    <ul class="bal-list">${rows.map((r) => `<li><button type="button" class="bal-row ${inScope(r.a) ? 'on' : ''}" data-acc-pick="${r.a.id}" aria-pressed="${inScope(r.a)}" title="Show ${esc(r.a.name)}">
-      <span>${esc(r.a.name)}<small>${ACC_TYPES[r.a.type]} · ${r.n} trade${r.n === 1 ? '' : 's'}</small></span>
-      <span class="num"><b>${r.bal != null ? money(r.bal) : '—'}</b><small class="${r.pnl > 0 ? 'win' : r.pnl < 0 ? 'loss' : ''}">${fmtUsd(r.pnl) || '$0'}</small></span></button></li>`).join('')}</ul>
+  // 14/11: bỏ số to ở trên (lặp lại đúng dòng đang chọn); mỗi tài khoản 1 thẻ viền đều, không còn gạch kẻ phụ
+  return `<div class="bal-cards" role="list">${rows.map((r) => `<button type="button" role="listitem" class="bal-row ${inScope(r.a) ? 'on' : ''}" data-acc-pick="${r.a.id}" aria-pressed="${inScope(r.a)}" title="Show ${esc(r.a.name)}">
+      <span class="bal-name"><b>${esc(r.a.name)}</b><small>${ACC_TYPES[r.a.type]} · ${r.n} trade${r.n === 1 ? '' : 's'}</small></span>
+      <span class="bal-num"><b>${r.bal != null ? money(r.bal) : '—'}</b><small class="${r.pnl > 0 ? 'win' : r.pnl < 0 ? 'loss' : ''}">${fmtUsd(r.pnl) || '$0'}</small></span></button>`).join('')}</div>
     ${list.some((a) => a.starting_balance == null) ? '<p class="hint bal-hint">— = no starting balance yet. Add it in Accounts.</p>' : ''}${nag}`;
 }
 

@@ -1667,15 +1667,18 @@ select:not([multiple]) {
 .draft-banner .draft-actions { display: flex; gap: 8px; }
 
 
-/* ---------- Ô Account balance (14/11): mỗi tài khoản 1 dòng bấm được, dòng đang xem sáng viền ---------- */
-.bal-list li { padding: 0; border-top: 1px solid var(--line); display: block; }
-.bal-row { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 10px; margin: 2px 0; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.bal-row:hover { background: rgba(var(--ink), 0.05); }
+/* ---------- Ô Account balance (14/11, bản 2): mỗi tài khoản 1 thẻ, viền đều 1px, cách nhau 8px; thẻ đang xem viền teal ---------- */
+.bal-cards { display: grid; gap: 8px; }
+.bal-row { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background-color .15s; }
+.bal-row:hover { border-color: var(--muted); }
 .bal-row.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.bal-row .num { text-align: right; }
-.bal-row small { display: block; font-size: 12px; color: var(--muted); }
+.bal-name, .bal-num { display: grid; gap: 2px; min-width: 0; }
+.bal-name b { font: 600 15px var(--font-head); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bal-num { text-align: right; }
+.bal-num b { font: 600 16px var(--font-num); font-variant-numeric: tabular-nums; }
+.bal-row small { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .bal-row small.win { color: var(--accent-text); } .bal-row small.loss { color: var(--loss-text); }
-.bal-hint { margin-top: 8px; font-size: 12px; }
-.bal-nag { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; color: var(--muted); }
+.bal-hint { margin-top: 10px; font-size: 12px; }
+.bal-nag { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; font-size: 13px; color: var(--muted); }
 .bal-nag svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--text); }
 .bal-nag .link { margin-left: auto; font-weight: 600; white-space: nowrap; }
