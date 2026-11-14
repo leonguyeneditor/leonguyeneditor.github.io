@@ -7,7 +7,7 @@
 //   #/trade/5/edit  sửa lệnh số 5
 
 // ---------- Danh sách lựa chọn (sửa ở đây nếu muốn đổi) ----------
-let SESSIONS = ['Asia', 'London', 'NY AM', 'NY PM'];
+let SESSIONS = ['Asia', 'London', 'NY AM', 'NY PM', 'Out of session'];
 let SYMBOLS = ['MNQ', 'NQ', 'MES', 'ES', 'MGC', 'GC'];
 let CONFIRMATIONS = ['MSS', 'CISD', 'IFVG', 'FVG', 'SMT']; // tín hiệu khung nhỏ (10/11: bỏ OB/BB/BPR vì đã ở HTF PDA, bỏ Displacement)
 let MISTAKES = [
@@ -1449,6 +1449,7 @@ function applySettings(st) {
   EMOTIONS = st.emotions || DEFAULT_LISTS.emotions;
   DOLS = st.dols || DEFAULT_LISTS.dols;
   SESSIONS = st.sessions || DEFAULT_LISTS.sessions;
+  if (!SESSIONS.includes('Out of session')) SESSIONS = [...SESSIONS, 'Out of session']; // 14/11: lệnh ngoài giờ các phiên chính
   SYMBOLS = st.symbols || DEFAULT_LISTS.symbols;
   MAX_LOSSES = st.max_losses || 2;
   if (st.pda_htf) PDA_HTF = st.pda_htf;
@@ -2085,38 +2086,61 @@ function renderModels() {
     </div>`;
   };
 
-  // Breakdown: một khối, nhiều tab
-  // 4 tab đi đúng thứ tự chủ dự án xem chart (10/11). PDA đi chung khung giờ, tín hiệu vào lệnh đi chung khung vào lệnh.
-  const tfOfZone = (t) => (t.pda_tf || []).join(' + ');
-  const TABS = [
-    ['dol', '1 · Daily target', 'Which daily target does price really reach for you?', 'Daily target = where you expected price to go (PDH, PDL…). A trade with 2 targets counts in both rows.', (t) => t.dols || []],
-    ['pda', '2 · HTF PDA', 'Which PDA works best for you?', 'Counts every trade with a result, with or without a strategy. A trade with 2 PDAs counts in both rows.', (t) => t.pdas || []],
-    ['struct', '3 · Structure', 'Do you win more when structure agrees with your HTF Bias?', 'Compares trades where the structure went the same way as your HTF Bias (H1/H4) with trades where it went against it or was sideways.', (t) => { const a = alignedOf(t.htf_bias, t.m15_structure); return [a === true ? 'With HTF Bias' : t.m15_structure === 'sideways' ? 'Sideways' : a === false ? 'Against HTF Bias' : null]; }, ['With HTF Bias', 'Against HTF Bias', 'Sideways']],
-    ['entry', '4 · Entry', 'Which entry works best for you?', 'Each row is your entry signal together with the timeframe you entered on, for example “MSS · M1”.', (t) => (t.confirmations || []).map((c) => (t.entry_tf ? `${c} · ${t.entry_tf}` : c))],
-    // Phiên và giờ vào lệnh (13/11): lấy đúng ô Session và Time chủ dự án điền ở form lệnh. Giờ chia theo từng giờ, xếp theo thứ tự trong ngày.
-    ['session', 'Session', 'Which session works best for you?', 'Uses the Session you pick on each trade. Every trade with a result counts, with or without a strategy.', (t) => (t.session ? [t.session] : [])],
-    ['hour', 'Time', 'Which hour of the day works best for you?', 'Uses the Time you enter on each trade, grouped by the hour (for example 07:00–08:00). Trades without a time are left out.', (t) => (/^\d{1,2}:\d{2}/.test(t.time || '') ? [hourLabel(t.time)] : []), Array.from({ length: 24 }, (_, h) => hourLabel(`${h}:00`))],
-  ];
-  if (!TABS.some((x) => x[0] === reviewTab)) reviewTab = 'pda';
-  const [, tabName, tabQ, tabInfo, keysOf, order] = TABS.find((x) => x[0] === reviewTab);
-  const g = groupBy(rows, keysOf); const pg = groupBy(prows, keysOf);
-  const labels = order ? order.filter((x) => g.has(x)) : [...g.keys()].sort((a, b) => { const A = groupStat(g.get(a)); const B = groupStat(g.get(b)); return (B.win ?? -1) - (A.win ?? -1) || B.n - A.n; });
-  const breakdown = labels.length ? `<div class="rv-rows">
-      <div class="rv-row head"><span></span><span>Win %</span><span class="num">Trades</span><span class="num">Avg R</span><span class="num">Net</span>${prev ? '<span class="num">vs prev</span>' : ''}</div>
-      ${labels.map((k) => { const s = groupStat(g.get(k)); const p = pg.has(k) ? groupStat(pg.get(k)) : null; return `<div class="rv-row">
-        <span class="rv-name">${esc(k)} ${fewTag(s.n)}</span>
-        <span class="rv-winc">${bar(s.win)}<b>${pc(s.win)}</b></span>
-        <span class="num">${s.n}</span><span class="num ${tone(s.avgR)}">${rv(s.avgR)}</span><span class="num ${tone(s.net)}">${usd(s.net)}</span>
-        ${prev ? `<span class="num">${delta(s.win, p?.win) || '<span class="hint">—</span>'}</span>` : ''}</div>`; }).join('')}
-    </div>` : `<div class="tile-empty"><p>No trades with ${esc(tabName.replace(/^\d · /, ''))} filled in yet. Fill it in the Setup block when you log a trade.</p></div>`;
-  // Dòng tốt nhất hiện tại: Win % cao nhất, hoà thì R trung bình cao hơn
-  const bestK = labels.slice().sort((a, b) => { const A = groupStat(g.get(a)); const B = groupStat(g.get(b)); return (B.win ?? -1) - (A.win ?? -1) || B.n - A.n || (B.avgR ?? -99) - (A.avgR ?? -99); })[0]; // hoà Win % thì ưu tiên nhiều lệnh hơn
-  const bestS = bestK ? groupStat(g.get(bestK)) : null;
-  const bestLine = bestK && labels.length > 1 ? `<p class="rv-best">Best so far: <b>${esc(bestK)}</b> · ${pc(bestS.win)} win · ${bestS.n} trade${bestS.n === 1 ? '' : 's'} ${fewTag(bestS.n)}</p>` : '';
+  // Review (14/11, chủ dự án chốt): bỏ 6 tab, thay bằng 4 khối xếp dọc, mỗi khối 1 câu kết luận + bảng: Strategy · PDA · Mistakes · Session & Time
+  const stratName = (k) => { if (k === '0') return 'No strategy'; const m = MODELS.find((x) => String(x.id) === k); return m ? m.name : `${(mg.get(k) || [])[0]?.model_name || 'Strategy'} (deleted)`; };
+  const byWin = (g) => (a, b) => { const A = groupStat(g.get(a)); const B = groupStat(g.get(b)); return (B.win ?? -1) - (A.win ?? -1) || B.n - A.n || (B.avgR ?? -99) - (A.avgR ?? -99); };
+  const table = (g, pgx, keys, nameOf, cols = 'full') => `<div class="rv-rows ${cols === 'short' ? 'short' : ''}">
+      <div class="rv-row head"><span></span><span>Win %</span><span class="num">Trades</span>${cols === 'short' ? '' : '<span class="num">Avg R</span>'}<span class="num">Net</span>${prev && cols !== 'short' ? '<span class="num">vs prev</span>' : ''}</div>
+      ${keys.map((k) => { const st = groupStat(g.get(k)); const p = pgx?.has(k) ? groupStat(pgx.get(k)) : null; return `<div class="rv-row">
+        <span class="rv-name">${esc(nameOf(k))} ${fewTag(st.n)}</span>
+        <span class="rv-winc">${bar(st.win)}<b>${pc(st.win)}</b></span>
+        <span class="num">${st.n}</span>${cols === 'short' ? '' : `<span class="num ${tone(st.avgR)}">${rv(st.avgR)}</span>`}<span class="num ${tone(st.net)}">${usd(st.net)}</span>
+        ${prev && cols !== 'short' ? `<span class="num">${delta(st.win, p?.win) || '<span class="hint">—</span>'}</span>` : ''}</div>`; }).join('')}
+    </div>`;
+  const bestOf = (g, keys, nameOf) => { if (!keys.length) return ''; const k = keys.slice().sort(byWin(g))[0]; const st = groupStat(g.get(k)); return `Best: <b>${esc(nameOf(k))}</b> · ${pc(st.win)} win · ${st.n} trade${st.n === 1 ? '' : 's'} ${fewTag(st.n)}`; };
+  const block = (num, title, info, lead, body) => `<section class="tile rv-block">
+      <header class="tile-head"><h3>${num} · ${title}</h3><button type="button" class="info-tip" data-tip="${esc(`${info}\nRows marked “few” have under ${FEW} trades, so they can still be luck. Quick entries (day totals) are not counted.`)}" aria-label="What is this?">${ICON.info}</button></header>
+      ${lead ? `<p class="rv-lead">${lead}</p>` : ''}
+      ${body}
+    </section>`;
+  const emptyP = (txt) => `<div class="tile-empty"><p>${txt}</p></div>`;
+  // 1 · Strategy
+  const sKeys = [...mg.keys()].sort(byWin(mg));
+  const b1 = block(1, 'Strategy', 'Win % of each strategy you picked on your trades. Trades with no strategy have their own row.', bestOf(mg, sKeys, stratName), table(mg, pmg, sKeys, stratName));
+  // 2 · PDA
+  const pdg = groupBy(rows, (t) => t.pdas || []); const ppdg = groupBy(prows, (t) => t.pdas || []);
+  const pKeys = [...pdg.keys()].sort(byWin(pdg));
+  const b2 = block(2, 'PDA', 'Win % of each HTF PDA you ticked, with or without a strategy. A trade with 2 PDAs counts in both rows.', bestOf(pdg, pKeys, (k) => k),
+    pKeys.length ? table(pdg, ppdg, pKeys, (k) => k) : emptyP('No trades with a PDA ticked yet. Tick the HTF PDA in the Setup block when you log a trade.'));
+  // 3 · Mistakes: lỗi nào làm mất tiền nhiều nhất, so với lệnh sạch (không lỗi)
+  const mkg = groupBy(rows, (t) => t.mistakes || []);
+  const mKeys = [...mkg.keys()].sort((a, b) => groupStat(mkg.get(a)).net - groupStat(mkg.get(b)).net || mkg.get(b).length - mkg.get(a).length);
+  const withM = rows.filter((t) => (t.mistakes || []).length); const clean = rows.filter((t) => !(t.mistakes || []).length);
+  const lossOf = (list) => list.reduce((sum, t) => sum + (t.pnl_usd < 0 ? t.pnl_usd : 0), 0);
+  const mCost = lossOf(withM); const cs = groupStat(clean); const ms = groupStat(withM);
+  const worst = mKeys[0]; const worstLoss = worst ? lossOf(mkg.get(worst)) : 0;
+  const mLead = !withM.length ? (rows.length ? 'No mistakes logged in this period. Keep it up.' : '')
+    : `${mCost < 0 ? `Mistakes cost you <b class="loss">${usd(mCost)}</b> in losing trades.` : 'Trades with mistakes did not lose money this time.'}${worst && worstLoss < 0 ? ` Biggest leak: <b>${esc(worst)}</b> (<span class="loss">${usd(worstLoss)}</span>).` : ''}`;
+  const mBody = mKeys.length ? `${table(mkg, groupBy(prows, (t) => t.mistakes || []), mKeys, (k) => k)}
+      <div class="rv-compare">
+        <div><small>Clean trades (no mistake)</small><b>${pc(cs.win)} win</b><span class="hint">${cs.n} trade${cs.n === 1 ? '' : 's'} · <span class="${tone(cs.net)}">${usd(cs.net)}</span></span></div>
+        <div><small>Trades with a mistake</small><b>${pc(ms.win)} win</b><span class="hint">${ms.n} trade${ms.n === 1 ? '' : 's'} · <span class="${tone(ms.net)}">${usd(ms.net)}</span></span></div>
+      </div>` : emptyP('No mistakes ticked on trades in this period.');
+  const b3 = block(3, 'Mistakes', 'Each mistake you ticked on your trades, worst Net first. Net = total $ of the trades with that mistake. A trade with 2 mistakes counts in both rows.', mLead, mBody);
+  // 4 · Session & Time: bảng phiên + giờ tốt nhất / tệ nhất (không hiện đủ 24 giờ cho gọn)
+  const sg = groupBy(rows, (t) => (t.session ? [t.session] : [])); const psg = groupBy(prows, (t) => (t.session ? [t.session] : []));
+  const sesKeys = [...sg.keys()].sort(byWin(sg));
+  const hg = groupBy(rows, (t) => (/^\d{1,2}:\d{2}/.test(t.time || '') ? [hourLabel(t.time)] : []));
+  const hKeys = [...hg.keys()].sort(byWin(hg));
+  const hourLine = (label, k) => { const st = groupStat(hg.get(k)); return `<p class="rv-hour"><small>${label}</small><b>${esc(k)}</b> · ${pc(st.win)} win · ${st.n} trade${st.n === 1 ? '' : 's'} · <span class="${tone(st.net)}">${usd(st.net)}</span> ${fewTag(st.n)}</p>`; };
+  const hours = hKeys.length ? `<div class="rv-hours">${hourLine('Best hour', hKeys[0])}${hKeys.length > 1 ? hourLine('Worst hour', hKeys[hKeys.length - 1]) : ''}</div>` : '';
+  const b4 = block(4, 'Session &amp; Time', 'Uses the Session and Time you enter on each trade. Hours are grouped, for example 07:00–08:00. Trades without a time are left out of the hours.',
+    bestOf(sg, sesKeys, (k) => k), sesKeys.length || hKeys.length ? `${sesKeys.length ? table(sg, psg, sesKeys, (k) => k) : ''}${hours}` : emptyP('No trades with a session or time yet.'));
+  const reviewBlocks = rows.length ? `${b1}${b2}${b3}${b4}` : `<section class="tile">${emptyP(`No closed trades in ${esc(cur.label)}.${period !== 'all' ? ' Use ‹ to look at an earlier period.' : ''}`)}</section>`;
 
   app.innerHTML = `
     <div class="page-head rv-head">
-      <div>${strat ? '<h1>Strategies</h1><p>Build your strategies step by step, then see how each one performs.</p>' : '<h1>Review</h1><p>Look back at a week or a month: which strategy, PDA and entry really work for you.</p>'}</div>
+      <div>${strat ? '<h1>Strategies</h1><p>Build your strategies step by step, then see how each one performs.</p>' : '<h1>Review</h1><p>Look back at a week or a month: which strategy, PDA, mistakes and hours really matter for you.</p>'}</div>
       ${strat ? '' : `<div class="review-bar">
         <div class="segmented" role="group" aria-label="Period">
           ${[['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([v, l]) => `<button type="button" data-period="${v}" class="${period === v ? 'on' : ''}" aria-pressed="${period === v}">${l}</button>`).join('')}
@@ -2146,17 +2170,11 @@ function renderModels() {
     </div>
     <p class="error rv-error" role="alert" hidden></p>` : ''}
 
-    ${strat ? '' : `<section class="tile rv-breakdown">
-      <header class="tile-head"><h3>Breakdown</h3><button type="button" class="info-tip" data-tip="${esc(`${tabInfo}\nRows marked “few” have under ${FEW} trades, so they can still be luck. Quick entries (day totals) are not counted.`)}" aria-label="What is this?">${ICON.info}</button></header>
-      <div class="rv-tabs" role="tablist">${TABS.map(([k, l]) => `<button type="button" role="tab" aria-selected="${k === reviewTab}" class="${k === reviewTab ? 'on' : ''}" data-rv-tab="${k}">${l}</button>`).join('')}</div>
-      <div class="rv-qbox"><p class="rv-q">${esc(tabQ)}</p>${rows.length ? bestLine : ''}</div>
-      ${rows.length ? breakdown : `<div class="tile-empty"><p>No closed trades in ${esc(cur.label)}.${period !== 'all' ? ' Use ‹ to look at an earlier period.' : ''}</p></div>`}
-    </section>`}`;
+    ${strat ? '' : reviewBlocks}`;
 
   app.querySelector('[data-draft-discard]')?.addEventListener('click', () => { clearTradeDraft(); renderModels(); });
   app.querySelectorAll('[data-period]').forEach((b) => b.addEventListener('click', () => { period = b.dataset.period; reviewOffset = 0; renderModels(); }));
   app.querySelectorAll('[data-rv]').forEach((b) => b.addEventListener('click', () => { const n = Number(b.dataset.rv); reviewOffset = n === 0 ? 0 : Math.max(0, reviewOffset + n); renderModels(); }));
-  app.querySelectorAll('[data-rv-tab]').forEach((b) => b.addEventListener('click', () => { reviewTab = b.dataset.rvTab; renderModels(); }));
   const err = app.querySelector('.rv-error');
   const show = (m) => { err.textContent = m; err.hidden = false; };
   app.querySelector('[data-model-new]')?.addEventListener('click', () => { editingModel = 'new'; modelDraft = { name: '', ...blankRecipe() }; renderModels(); app.querySelector('.model-editor')?.scrollIntoView({ block: 'center' }); app.querySelector('.model-editor input[name="name"]')?.focus(); });
@@ -2327,7 +2345,7 @@ function renderForm(existing, presetDate) {
         <div class="cols c3">
           <label>Date <input type="date" name="date" value="${esc(t.date)}" required></label>
           <label>Time (${tzShort()}) <input type="time" name="time" value="${esc(t.time || '')}"></label>
-          <label>Session <select name="session">${SESSIONS.map((s) => `<option ${s === t.session ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+          <label>Session <select name="session">${sessionOpts(t.session)}</select></label>
         </div>
         <div class="cols c2">
           <label>Symbol <input name="symbol" list="symbols" value="${esc(t.symbol || '')}"></label>
@@ -2496,6 +2514,7 @@ function renderForm(existing, presetDate) {
   syncBreakReason();
 
   // Model giờ chỉ là tên để nhóm lệnh (10/11)
+  bindSessionSelect(form.session);
   form.model_id.addEventListener('change', () => {
     const id = Number(form.model_id.value) || null;
     const m = MODELS.find((x) => x.id === id);
@@ -3179,6 +3198,45 @@ function askDialog({ title, body, actions }) {
 
 // ---------- Chuyển lệnh sang ngày khác (11/11) ----------
 // Hai cách: nút "Move to…" trên từng lệnh, hoặc kéo cả ô ngày (có lệnh) thả lên ô ngày khác. Chỉ đổi ngày; giờ, tài khoản, ghi chú ngày giữ nguyên.
+// Hỏi 1 dòng chữ (14/11, dùng cho "+ Add session…")
+function askTextDialog({ title, body, label, ok = 'Add', max = 40 }) {
+  return new Promise((resolve) => {
+    const dlg = document.createElement('dialog');
+    dlg.className = 'ask';
+    dlg.innerHTML = `<h3>${title}</h3><p class="hint">${body}</p>
+      <label class="inline">${label} <input type="text" maxlength="${max}" style="width:200px"></label>
+      <div class="ask-actions"><button type="button" class="btn" value="">Cancel</button><button type="button" class="btn btn-primary" value="ok">${ok}</button></div>`;
+    document.body.append(dlg);
+    const input = dlg.querySelector('input');
+    const done = (v) => { dlg.close(); dlg.remove(); resolve(v); };
+    dlg.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => done(b.value === 'ok' && input.value.trim() ? input.value.trim() : null)));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); dlg.querySelector('[value="ok"]').click(); } });
+    dlg.addEventListener('cancel', (e) => { e.preventDefault(); done(null); });
+    dlg.showModal();
+    input.focus();
+  });
+}
+// Ô Session trong form lệnh: danh sách phiên + phiên cũ của lệnh (nếu đã bị bỏ) + "+ Add session…"
+function sessionOpts(cur) {
+  const list = cur && !SESSIONS.includes(cur) ? [...SESSIONS, cur] : SESSIONS;
+  return `${list.map((s) => `<option ${s === cur ? 'selected' : ''}>${esc(s)}</option>`).join('')}<option value="__add">+ Add session…</option>`;
+}
+function bindSessionSelect(sel) {
+  let last = sel.value;
+  sel.addEventListener('change', async () => {
+    if (sel.value !== '__add') { last = sel.value; return; }
+    sel.value = last;
+    const name = await askTextDialog({ title: 'Add a session', body: 'Name it the way you like, for example “Sydney” or “NY lunch”. It is added to the list for every trade.', label: 'Session' });
+    if (!name) return;
+    const hit = SESSIONS.find((x) => x.toLowerCase() === name.toLowerCase());
+    if (!hit) {
+      const next = [...SESSIONS, name];
+      try { await api('/api/settings', { method: 'PUT', body: JSON.stringify({ sessions: next }) }); SESSIONS = next; } catch (ex) { toast(ex.message); return; }
+    }
+    sel.innerHTML = sessionOpts(hit || name); last = sel.value;
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
 function pickDateDialog({ title, body, value }) {
   return new Promise((resolve) => {
     const dlg = document.createElement('dialog');

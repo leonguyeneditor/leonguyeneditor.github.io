@@ -412,6 +412,7 @@ code { font-size: 12px; padding: 2px 6px; border-radius: 4px; background: var(--
 .card .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .card .meta { font-size: 12px; color: var(--muted); }
 .card .tags { font-size: 12px; margin-top: 6px; color: var(--muted); }
+.card .tags:has(.pill) { display: flex; flex-wrap: wrap; gap: 6px; }
 .card .warn { color: var(--loss-text); }
 .r { font-family: var(--font-num); font-weight: 600; font-size: 16px; }
 .r.win { color: var(--accent-text); }
@@ -1354,6 +1355,23 @@ dialog.img-view::backdrop { background: rgba(0, 0, 0, 0.75); }
 .m-card-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .rv-error { margin: 8px 0 0; }
 .rv-breakdown { margin-top: 22px; display: grid; gap: 14px; }
+/* Review 4 khối (14/11) */
+.rv-block { margin-top: 16px; display: grid; gap: 12px; }
+.rv-block .tile-head { margin-bottom: 0; }
+.rv-block .tile-empty { min-height: 0; padding: 4px 0; display: block; text-align: left; }
+.rv-block .tile-empty p { margin: 0; max-width: none; }
+.rv-lead { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.5; }
+.rv-lead b { color: var(--text); }
+.rv-lead b.loss, .rv-lead .loss { color: var(--loss-text); }
+.rv-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rv-compare > div { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); }
+.rv-compare small, .rv-hour small { display: block; font-size: 12px; color: var(--muted); }
+.rv-compare b { font: 600 18px var(--font-num); }
+.rv-compare .win { color: var(--accent-text); } .rv-compare .loss, .rv-hour .loss { color: var(--loss-text); } .rv-hour .win { color: var(--accent-text); }
+.rv-hours { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rv-hour { margin: 0; display: block; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); font-size: 13px; color: var(--muted); }
+.rv-hour b { color: var(--text); font: 600 15px var(--font-num); }
+@media (max-width: 640px) { .rv-compare, .rv-hours { grid-template-columns: 1fr; } }
 .rv-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
 .rv-tabs button { height: 36px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font: 500 14px var(--font-body); cursor: pointer; margin-bottom: -1px; }
 .rv-tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
@@ -1374,8 +1392,13 @@ dialog.img-view::backdrop { background: rgba(0, 0, 0, 0.75); }
 @media (max-width: 760px) {
   .rv-summary { grid-template-columns: 1fr 1fr; row-gap: 14px; }
   .rv-summary > div:nth-child(3) { padding-left: 0; border-left: 0; }
-  .rv-row { grid-template-columns: 1fr 1fr; row-gap: 6px; }
-  .rv-row.head { display: none; }
+  /* 14/11: tên + Win % một hàng, các số một hàng 4 cột (có tiêu đề cột) cho gọn */
+  .rv-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 10px; }
+  .rv-row > :nth-child(1) { grid-column: 1 / 3; }
+  .rv-row > :nth-child(2) { grid-column: 3 / 5; }
+  .rv-row.head > :nth-child(1), .rv-row.head > :nth-child(2) { display: none; }
+  .rv-row.head { padding-bottom: 2px; }
+  .rv-row.head > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rv-row .num { text-align: left; font-size: 13px; }
 }
 .su-row > .toggle, .su-ctl > .toggle { justify-self: start; }
