@@ -267,6 +267,23 @@
       }
       return out;
     },
+
+    // Strategy đã xoá (14/11): nằm trong thùng rác 30 ngày, giữ nguyên công thức để Restore. [{ ...strategy, deleted_at: 'YYYY-MM-DD HH:MM:SS' (UTC), trades }]
+    models_trash: (v) => {
+      if (!Array.isArray(v) || v.length > 50) return null;
+      const out = [];
+      for (const m of v) {
+        const at = typeof m?.deleted_at === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(m.deleted_at) ? m.deleted_at : null;
+        const one = SETTING_RULES.models([m]);
+        if (!at || !one) return null;
+        // Các lệnh đã dùng strategy này (để Restore gắn lại): [{ id, items, checks }]
+      const strs = (x) => (Array.isArray(x) ? x.filter((y) => typeof y === 'string').slice(0, 60) : []);
+      const trades = (Array.isArray(m.trades) ? m.trades : []).filter((t) => Number.isInteger(t?.id) && t.id > 0).slice(0, 2000)
+        .map((t) => ({ id: t.id, items: strs(t.items), checks: strs(t.checks) }));
+      out.push({ ...one[0], deleted_at: at, trades });
+      }
+      return out;
+    },
   };
 
   // ---------- Thùng rác: giữ 30 ngày ----------

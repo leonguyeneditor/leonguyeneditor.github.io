@@ -34,6 +34,9 @@ let PDA_HTF = ['BPR', 'OB', 'FVG', 'BB'];
 let STRUCT_M15 = ['MSS', 'Trend aligned', 'Sweep'];
 let ENTRY_M1 = ['Sweep', 'MSS', 'FVG', 'IFVG', 'CISD', 'OB', 'Displacement'];
 let MODELS = []; // [{ id, name, items: [...cũ], recipe?: { dols, pdas, pda_tf, structure, confirmations, entry_tf } }]
+let MODELS_TRASH = []; // 14/11: strategy đã xoá nằm trong Trash 30 ngày: [{ ...strategy, deleted_at, trades: [{ id, items, checks }] }]
+const utcStamp = () => new Date().toISOString().slice(0, 19).replace('T', ' '); // cùng kiểu deleted_at của server
+const trashAge = (at) => (Date.now() - new Date(`${at.replace(' ', 'T')}Z`).getTime()) / 86400000;
 let PDA_TFS = ['H4', 'H1'];    // khung giờ của vùng HTF PDA (tự thêm được ở editor model, 11/11)
 let ENTRY_TFS = ['M5', 'M1'];  // khung giờ vào lệnh
 // Các danh sách chọn theo khoá cài đặt: [lấy, gán]. Dùng để xoá một lựa chọn và hoàn tác (⌘Z) việc xoá (11/11).
@@ -886,18 +889,8 @@ function renderDashboard() {
     </div>
 
     <section class="tile cal-tile" id="cal-section">
-      <header class="cal-tile-head">
-        <div>
-          <h3>${b.monthName}</h3>
-          <p class="hint">${b.monthStat.usd != null ? `Month: <b class="${tone(b.monthStat.usd)}">${fmtUsd(b.monthStat.usd) || '$0'}</b>${b.monthStat.r != null ? ` · ${fmtRv(b.monthStat.r)}` : ''} · ` : ''}Click any day to see trades, add one or write a note</p>
-        </div>
-        <div class="cal-nav">
-          <button class="btn btn-soft" data-shift="-1" aria-label="Previous month">‹</button>
-          <button class="btn btn-soft" data-shift="0">Today</button>
-          <button class="btn btn-soft" data-shift="1" aria-label="Next month">›</button>
-        </div>
-      </header>
-      ${calGridHTML(b)}
+      ${calHeadHTML(b)}
+      ${calView === 'year' ? calYearHTML(calMonth.slice(0, 4)) : calGridHTML(b)}
     </section>
   `;
   noteMsg = '';
@@ -911,6 +904,13 @@ function renderDashboard() {
     calSelected = null; calEditing = null;
     renderDashboard();
   }));
+  // Nhảy năm (giữ tháng), đổi Month / Year, bấm 1 ô tháng ở chế độ Year thì về lịch tháng đó
+  app.querySelectorAll('[data-shift-year]').forEach((btn) => btn.addEventListener('click', () => {
+    const [yy, mm] = calMonth.split('-').map(Number); calMonth = `${yy + Number(btn.dataset.shiftYear)}-${String(mm).padStart(2, '0')}`;
+    calSelected = null; calEditing = null; renderDashboard();
+  }));
+  app.querySelectorAll('[data-cal-view]').forEach((btn) => btn.addEventListener('click', () => { calView = btn.dataset.calView; calSelected = null; calEditing = null; renderDashboard(); }));
+  app.querySelectorAll('[data-cal-month]').forEach((btn) => btn.addEventListener('click', () => { calMonth = btn.dataset.calMonth; calView = 'month'; calSelected = null; calEditing = null; renderDashboard(); }));
   const openDay = (day) => {
     calSelected = day;
     if (!shownDays.includes(day)) calMonth = day.slice(0, 7);
@@ -1458,6 +1458,7 @@ function applySettings(st) {
   if (st.entry_m1) ENTRY_M1 = st.entry_m1;
   setSteps(st.steps?.length ? st.steps : defaultSteps());
   MODELS = st.models || [];
+  MODELS_TRASH = (st.models_trash || []).filter((m) => trashAge(m.deleted_at) < 30);
   if (Array.isArray(st.pda_tfs)) PDA_TFS = st.pda_tfs;
   if (Array.isArray(st.entry_tfs)) ENTRY_TFS = st.entry_tfs;
 }
@@ -1468,6 +1469,28 @@ const currentLists = () => ({ confirmations: CONFIRMATIONS, mistakes: MISTAKES, 
 // Luật STOP và các danh sách chọn giữ giá trị đã lưu, không sửa ở đây nữa.
 // Thùng rác: lệnh, ghi chú ngày, ghi chú Notebook đã xoá (giữ 30 ngày)
 let trash = { trades: [], day_notes: [], notes: [] };
+// Lấy strategy ra khỏi Trash (Restore hoặc ⌘Z): đặt lại vào danh sách, gắn lại các lệnh chưa đổi sang strategy khác
+async function restoreTrashedModel(id, at = null) {
+  const e = MODELS_TRASH.find((x) => x.id === id); if (!e) return null;
+  const { deleted_at: _d, trades: links = [], ...m } = e;
+  const name = MODELS.some((x) => x.name.toLowerCase() === m.name.toLowerCase()) ? `${m.name} (restored)` : m.name;
+  const next = [...MODELS]; next.splice(at == null || at < 0 ? next.length : Math.min(at, next.length), 0, { ...m, name });
+  const nt = MODELS_TRASH.filter((x) => x.id !== id);
+  await api('/api/settings', { method: 'PUT', body: JSON.stringify({ models: next, models_trash: nt }) });
+  MODELS = next; MODELS_TRASH = nt;
+  for (const l of links) {
+    const t = allTrades.find((x) => x.id === l.id);
+    if (!t || t.model_id) continue; // lệnh đã xoá, hoặc đã chọn strategy khác thì để yên
+    await api(`/api/trades/${l.id}/strategy`, { method: 'PUT', body: JSON.stringify({ model_id: id, model_name: name, model_items: l.items, model_checks: l.checks }) }).catch(() => {});
+  }
+  await loadTrades();
+  return name;
+}
+async function purgeTrashedModels(ids) {
+  const nt = MODELS_TRASH.filter((x) => !ids.includes(x.id));
+  await api('/api/settings', { method: 'PUT', body: JSON.stringify({ models_trash: nt }) });
+  MODELS_TRASH = nt;
+}
 function trashRows() {
   const daysLeft = (s) => Math.max(0, 30 - Math.floor((Date.now() - new Date(`${s.replace(' ', 'T')}Z`).getTime()) / 86400000));
   const row = (kind, id, title, sub, at) => `
@@ -1478,6 +1501,7 @@ function trashRows() {
     ...trash.trades.map((t) => row('trade', t.id, esc([fmtDate(t.date), t.time, t.symbol, t.direction === 'long' ? 'Long' : t.direction === 'short' ? 'Short' : ''].filter(Boolean).join(' · ')), `Trade · ${fmtResult(t)}`, t.deleted_at)),
     ...trash.day_notes.map((d) => row('day_note', d.date, esc(longDate(d.date)), `Day note · ${esc(d.note.slice(0, 60))}`, d.deleted_at)),
     ...trash.notes.map((n) => row('note', n.id, esc(n.title || 'Untitled'), 'Notebook note', n.deleted_at)),
+    ...MODELS_TRASH.map((m) => row('model', m.id, esc(m.name), `Strategy · ${m.trades?.length || 0} trade${m.trades?.length === 1 ? '' : 's'}`, m.deleted_at)),
   ];
 }
 
@@ -1516,7 +1540,7 @@ async function renderSettings() {
 
     <section class="tile set-block trash-block">
       <h3>Trash</h3>
-      <p class="hint">Deleted trades and notes stay here for 30 days, then they are gone for good. You can also press <kbd>${IS_MAC ? '⌘' : 'Ctrl+'}Z</kbd> right after deleting.</p>
+      <p class="hint">Deleted trades, notes and strategies stay here for 30 days, then they are gone for good. You can also press <kbd>${IS_MAC ? '⌘' : 'Ctrl+'}Z</kbd> right after deleting.</p>
       ${rows.length ? `<ul class="trash-list">${rows.join('')}</ul>
         <div class="list-actions"><button type="button" class="btn btn-soft" data-restore-all>Restore all</button><button type="button" class="btn btn-danger-solid" data-empty-trash>Empty trash</button></div>`
         : '<p class="hint"><b>Trash is empty.</b></p>'}
@@ -1542,22 +1566,27 @@ async function renderSettings() {
   app.querySelectorAll('[data-theme-pref]').forEach((b) => b.addEventListener('click', () => { setTheme(b.dataset.themePref); renderSettings(); }));
   const item = (v) => { const [kind, ...rest] = v.split('|'); return { kind, id: rest.join('|') }; };
   const restore = async (items) => {
-    try { await api('/api/trash/restore', { method: 'POST', body: JSON.stringify({ items }) }); await loadTrades(); toast(`Restored ${items.length} item${items.length === 1 ? '' : 's'}`); } catch (ex) { toast(ex.message); }
+    try {
+      const ms = items.filter((x) => x.kind === 'model'); const rest = items.filter((x) => x.kind !== 'model');
+      if (rest.length) await api('/api/trash/restore', { method: 'POST', body: JSON.stringify({ items: rest }) });
+      for (const x of ms) await restoreTrashedModel(Number(x.id));
+      await loadTrades(); toast(`Restored ${items.length} item${items.length === 1 ? '' : 's'}`);
+    } catch (ex) { toast(ex.message); }
     renderSettings();
   };
   app.querySelectorAll('[data-restore]').forEach((b) => b.addEventListener('click', () => restore([item(b.dataset.restore)])));
   app.querySelector('[data-restore-all]')?.addEventListener('click', () => restore([
-    ...trash.trades.map((t) => ({ kind: 'trade', id: t.id })), ...trash.day_notes.map((d) => ({ kind: 'day_note', id: d.date })), ...trash.notes.map((n) => ({ kind: 'note', id: n.id }))]));
+    ...trash.trades.map((t) => ({ kind: 'trade', id: t.id })), ...trash.day_notes.map((d) => ({ kind: 'day_note', id: d.date })), ...trash.notes.map((n) => ({ kind: 'note', id: n.id })), ...MODELS_TRASH.map((m) => ({ kind: 'model', id: m.id }))]));
   app.querySelectorAll('[data-purge]').forEach((b) => b.addEventListener('click', async () => {
     const ok = await askDialog({ title: 'Delete forever?', body: 'This item and its chart images will be gone for good. This cannot be undone.', actions: [{ label: 'Delete forever', value: 'yes', danger: true }] });
     if (!ok) return;
-    try { await api('/api/trash/purge', { method: 'POST', body: JSON.stringify({ items: [item(b.dataset.purge)] }) }); } catch (ex) { toast(ex.message); }
+    try { const it = item(b.dataset.purge); if (it.kind === 'model') await purgeTrashedModels([Number(it.id)]); else await api('/api/trash/purge', { method: 'POST', body: JSON.stringify({ items: [it] }) }); } catch (ex) { toast(ex.message); }
     renderSettings();
   }));
   app.querySelector('[data-empty-trash]')?.addEventListener('click', async () => {
     const ok = await askDialog({ title: 'Empty trash?', body: `${rows.length} item${rows.length === 1 ? '' : 's'} will be gone for good, with their chart images. This cannot be undone.`, actions: [{ label: 'Empty trash', value: 'yes', danger: true }] });
     if (!ok) return;
-    try { await api('/api/trash/purge', { method: 'POST', body: JSON.stringify({ all: true }) }); } catch (ex) { toast(ex.message); }
+    try { await api('/api/trash/purge', { method: 'POST', body: JSON.stringify({ all: true }) }); if (MODELS_TRASH.length) await purgeTrashedModels(MODELS_TRASH.map((m) => m.id)); } catch (ex) { toast(ex.message); }
     renderSettings();
   });
   // Nút xoá chỉ bật khi gõ đúng chữ DELETE
@@ -1583,6 +1612,7 @@ const addDays = (dateStr, n) => { const d = new Date(`${dateStr}T00:00:00Z`); d.
 
 // ---------- Calendar: lời/lỗ theo từng ngày (giờ New York) ----------
 let calMonth = null;     // 'YYYY-MM' đang xem
+let calView = 'month';   // 14/11: 'month' = lịch tháng, 'year' = 12 ô tháng của năm
 let calSelected = null;  // ngày đang bấm xem, 'YYYY-MM-DD'
 let calEditing = null;   // ngày đang gõ số ngay trong ô lịch
 
@@ -1634,6 +1664,42 @@ function buildMonth(month) {
 
   const monthName = cap1(first.toLocaleString((window.I18N?.locale || 'en-US'), { month: 'long', year: 'numeric', timeZone: 'UTC' }));
   return { y, m, weeks, monthStat, monthName, byDate };
+}
+
+// Đầu lịch (14/11, theo mẫu chủ dự án gửi): ‹ Tháng › ‹ Năm › + Today + Month / Year
+function calHeadHTML(b) {
+  const [yy, mm] = calMonth.split('-').map(Number);
+  const loc = window.I18N?.locale || 'en-US';
+  const mName = cap1(new Date(Date.UTC(yy, mm - 1, 1)).toLocaleString(loc, { month: 'long', timeZone: 'UTC' }));
+  const year = String(yy);
+  const yRows = trades.filter((t) => t.date.slice(0, 4) === year); const ys = dayStats(yRows);
+  const tn = (v) => (v > 0 ? 'win' : v < 0 ? 'loss' : '');
+  const sum = (label, st) => (st.usd != null ? `${label}: <b class="${tn(st.usd)}">${fmtUsd(st.usd) || '$0'}</b>${st.r != null ? ` · ${fmtRv(st.r)}` : ''} · ` : '');
+  const isYear = calView === 'year';
+  return `<header class="cal-tile-head">
+        <div>
+          <h3>${isYear ? year : b.monthName}</h3>
+          <p class="hint">${isYear ? `${sum('Year', ys)}Click a month to open it` : `${sum('Month', b.monthStat)}Click any day to see trades, add one or write a note`}</p>
+        </div>
+        <div class="cal-nav">
+          ${isYear ? '' : `<span class="cal-step"><button type="button" class="cal-arrow" data-shift="-1" aria-label="Previous month">‹</button><b class="cal-step-label">${esc(mName)}</b><button type="button" class="cal-arrow" data-shift="1" aria-label="Next month">›</button></span>`}
+          <span class="cal-step"><button type="button" class="cal-arrow" data-shift-year="-1" aria-label="Previous year">‹</button><b class="cal-step-label year">${year}</b><button type="button" class="cal-arrow" data-shift-year="1" aria-label="Next year">›</button></span>
+          <button type="button" class="btn btn-soft btn-sm" data-shift="0">Today</button>
+          <div class="segmented cal-view" role="group" aria-label="Calendar view">${[['month', 'Month'], ['year', 'Year']].map(([v, l]) => `<button type="button" data-cal-view="${v}" class="${calView === v ? 'on' : ''}" aria-pressed="${calView === v}">${l}</button>`).join('')}</div>
+        </div>
+      </header>`;
+}
+// Chế độ Year: 12 ô tháng, màu giống ô ngày, bấm để mở tháng đó
+function calYearHTML(year) {
+  const loc = window.I18N?.locale || 'en-US';
+  const nowM = todayStr().slice(0, 7);
+  return `<div class="cal-year" role="grid" aria-label="${year}">${Array.from({ length: 12 }, (_, i) => {
+    const key = `${year}-${String(i + 1).padStart(2, '0')}`;
+    const st = dayStats(trades.filter((t) => t.date.slice(0, 7) === key));
+    const name = cap1(new Date(Date.UTC(Number(year), i, 1)).toLocaleString(loc, { month: 'long', timeZone: 'UTC' }));
+    return `<button type="button" role="gridcell" class="cal-day cal-mcell ${statTone(st)} ${key === nowM ? 'today' : ''}" data-cal-month="${key}" aria-label="${esc(name)} ${year}${st.n ? `, ${st.n} trade${st.n === 1 ? '' : 's'}` : ''}">
+      <span class="cal-num">${esc(name)}</span>${st.n ? statLines(st) : '<small>—</small>'}</button>`;
+  }).join('')}</div>`;
 }
 
 // Vẽ lưới lịch (dùng ở trang Calendar và trên Dashboard)
@@ -2181,15 +2247,21 @@ function renderModels() {
   app.querySelector('[data-model-new]')?.addEventListener('click', () => { editingModel = 'new'; modelDraft = { name: '', ...blankRecipe() }; renderModels(); app.querySelector('.model-editor')?.scrollIntoView({ block: 'center' }); app.querySelector('.model-editor input[name="name"]')?.focus(); });
   app.querySelector('[data-model-cancel]')?.addEventListener('click', () => { editingModel = null; modelDraft = null; renderModels(); });
   if (strat) bindModelEditor(show);
+  // Xoá strategy (14/11, chủ dự án: những gì đã xoá luôn vào thùng rác): strategy vào Trash 30 ngày, các lệnh của nó về "No strategy". Restore hoặc ⌘Z thì gắn lại.
   const delModel = async (m) => {
-    const used = allTrades.filter((t) => t.model_id === m.id).length;
-    const ok = await askDialog({ title: `Delete ${esc(m.name)}?`, body: used ? `${used} trade${used === 1 ? '' : 's'} used this strategy. They keep the name, marked “deleted”.` : 'No trades use this strategy yet.', actions: [{ label: 'Delete strategy', value: 'yes', danger: true }] });
+    const linked = allTrades.filter((t) => t.model_id === m.id);
+    const ok = await askDialog({ title: `Delete ${esc(m.name)}?`, body: `It goes to Trash for 30 days.${linked.length ? ` Its ${linked.length} trade${linked.length === 1 ? '' : 's'} move${linked.length === 1 ? 's' : ''} to No strategy until you restore it.` : ''} Press ${IS_MAC ? '⌘' : 'Ctrl+'}Z to bring it back.`, actions: [{ label: 'Delete strategy', value: 'yes', danger: true }] });
     if (!ok) return;
     try {
       const at = MODELS.findIndex((x) => x.id === m.id);
-      await api('/api/settings', { method: 'PUT', body: JSON.stringify({ models: MODELS.filter((x) => x.id !== m.id) }) });
-      MODELS = MODELS.filter((x) => x.id !== m.id); renderModels();
-      pushUndo(`Deleted strategy ${m.name}`, [{ kind: 'model', m: JSON.parse(JSON.stringify(m)), i: at }]);
+      for (const t of linked) await api(`/api/trades/${t.id}/strategy`, { method: 'PUT', body: JSON.stringify({ model_id: null }) });
+      const entry = { ...JSON.parse(JSON.stringify(m)), deleted_at: utcStamp(), trades: linked.map((t) => ({ id: t.id, items: t.model_items || [], checks: t.model_checks || [] })) };
+      const next = MODELS.filter((x) => x.id !== m.id); const nt = [...MODELS_TRASH.filter((x) => x.id !== m.id), entry];
+      await api('/api/settings', { method: 'PUT', body: JSON.stringify({ models: next, models_trash: nt }) });
+      MODELS = next; MODELS_TRASH = nt;
+      if (editingModel === m.id) { editingModel = null; modelDraft = null; }
+      await loadTrades(); trades = applyScope(allTrades); renderModels();
+      pushUndo(`Deleted strategy ${m.name}`, [{ kind: 'model', id: m.id, i: at }]);
     } catch (ex) { toast(ex.message); }
   };
   const editModel = (m) => { editingModel = m.id; modelDraft = { name: m.name, ...blankRecipe(), ...JSON.parse(JSON.stringify(m.recipe || {})) }; renderModels(); app.querySelector('.model-editor')?.scrollIntoView({ block: 'center' }); app.querySelector('.model-editor input[name="name"]')?.select(); };
@@ -2250,7 +2322,7 @@ function renderModels() {
     e.preventDefault();
     const isNew = f.dataset.modelForm === 'new';
     const name = f.name.value.trim();
-    const id = isNew ? Math.max(0, ...MODELS.map((m) => m.id), ...allTrades.map((t) => t.model_id || 0)) + 1 : Number(f.dataset.modelForm);
+    const id = isNew ? Math.max(0, ...MODELS.map((m) => m.id), ...MODELS_TRASH.map((m) => m.id), ...allTrades.map((t) => t.model_id || 0)) + 1 : Number(f.dataset.modelForm);
     if (!name) return show('Type a strategy name, like Strategy 2022.');
     if (MODELS.some((m) => m.name.toLowerCase() === name.toLowerCase() && m.id !== id)) return show('You already have a strategy with this name.');
     const recipe = {};
@@ -3616,6 +3688,7 @@ async function undoLast() {
     }
     // Model đã xoá: đặt lại đúng vị trí cũ (lệnh cũ của model nhận lại tên và công thức)
     for (const it of modelItems) {
+      if (!it.m) { await restoreTrashedModel(it.id, it.i); continue; } // 14/11: strategy nằm trong Trash
       if (MODELS.some((x) => x.id === it.m.id)) continue;
       const next = [...MODELS]; next.splice(Math.min(it.i, next.length), 0, it.m);
       await api('/api/settings', { method: 'PUT', body: JSON.stringify({ models: next }) });
