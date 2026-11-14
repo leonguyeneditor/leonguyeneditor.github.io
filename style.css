@@ -74,8 +74,8 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .brand b { font-weight: 700; font-size: 15px; font-stretch: 125%; font-variation-settings: "wdth" 125; }
 .brand b span { color: var(--accent-text); }
 .brand small { display: block; font: 400 12px var(--font-body); letter-spacing: 0; color: var(--muted); }
-.brand-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); position: relative; }
-.brand-mark::after { content: ''; position: absolute; inset: 9px; border: 2px solid var(--bg); border-radius: 50%; }
+.brand-mark { width: 24px; height: 24px; flex: none; border-radius: 7px; background: var(--accent); position: relative; }
+.brand-mark::after { content: ''; position: absolute; inset: 7px; border: 2px solid var(--bg); border-radius: 50%; }
 .welcome { padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .welcome h2 { font-size: 22px; letter-spacing: -0.01em; text-transform: none; color: var(--text); line-height: 1.2; }
 .welcome p { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
