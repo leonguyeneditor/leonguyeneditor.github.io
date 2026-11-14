@@ -828,7 +828,6 @@ function renderDashboard() {
     <div class="dash-top">
       <div>
         <h1>Dashboard</h1>
-        <p class="hint">Last trade: <b>${trades[0] ? fmtDate(trades[0].date) : '—'}</b> · ${esc(scopeLabel())}</p>
       </div>
       <div class="dash-controls">
         <div class="segmented" role="group" aria-label="Period">
