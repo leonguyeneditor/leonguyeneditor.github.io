@@ -354,7 +354,7 @@ Object.assign(ICON, {
 // Thẻ của Dashboard: tiêu đề + icon (i) giải thích cách tính
 const tile = (title, info, body, cls = '', extra = '') => `
   <section class="tile ${cls}">
-    <header class="tile-head"><h3>${title}</h3>${info ? `<button type="button" class="info-tip" data-tip="${esc(info)}" aria-label="What is ${esc(String(title).replace(/<[^>]+>/g, '').trim())}?">${ICON.info}</button>` : ''}${extra}</header>
+    <header class="tile-head"><h3>${title}</h3>${info ? `<button type="button" class="info-tip" data-tip="${esc(info)}" aria-label="What is ${esc(String(title).split('<')[0].replace(/&amp;/g, '&').trim())}?">${ICON.info}</button>` : ''}${extra}</header>
     ${body}
   </section>`;
 
@@ -367,6 +367,7 @@ function resetScore(list, closed) {
   const k = useUsd ? 'pnl_usd' : 'result_r';
   const rows = closed.filter((t) => t[k] != null).sort(byTime);
   const money = (v) => (useUsd ? fmtUsd(Math.round(v)) || '$0' : fmtRv(v) || '0.0R');
+  const amt = (v) => money(v).replace(/^\+/, ''); // số tiền không dấu + (mức sụt, tổng thắng)
   const perTrade = closed.filter(notQuick);
   const wins = perTrade.filter((t) => outcomeOf(t) === 'win');
   const losses = perTrade.filter((t) => outcomeOf(t) === 'loss');
@@ -393,9 +394,9 @@ function resetScore(list, closed) {
     { name: 'Profit factor', v: pf != null ? cap((pf / 3) * 100) : pgw > 0 ? 100 : null, raw: pf != null ? `${pf.toFixed(2)} (3.0 or more = 100)` : 'no losing trades' },
     { name: 'Avg win/loss', v: ratio != null ? cap((ratio / 3) * 100) : null, raw: ratio != null ? `${ratio.toFixed(2)} (3.0 or more = 100)` : 'needs a win and a loss' },
     { name: 'Recovery factor', v: !rows.length ? null : net <= 0 ? 0 : maxDD ? cap(((net / maxDD) / 3) * 100) : 100,
-      raw: maxDD ? `net ${money(net)} ÷ max drawdown ${money(maxDD)} = ${(net / maxDD).toFixed(2)} (3.0 or more = 100)` : 'no drawdown yet' },
+      raw: maxDD ? `net ${money(net)} ÷ max drawdown ${amt(maxDD)} = ${(net / maxDD).toFixed(2)} (3.0 or more = 100)` : 'no drawdown yet' },
     { name: 'Max drawdown', v: !rows.length ? null : !maxDD ? 100 : gw ? cap((1 - maxDD / gw) * 100) : 0,
-      raw: `largest drop ${money(maxDD)} vs total won ${money(gw)} (smaller drop = higher score)` },
+      raw: `largest drop ${amt(maxDD)} vs total won ${amt(gw)} (smaller drop = higher score)` },
     { name: 'Consistency', v: bestShare == null ? null : cap((1 - bestShare) * 100),
       raw: bestShare == null ? 'needs a green day' : `best day = ${Math.round(bestShare * 100)}% of all green-day profit (lower = more consistent)` },
   ];
@@ -1379,7 +1380,7 @@ function renderAccounts() {
       ${tile('Prop fees paid', 'Money you spent on prop challenges (the fee you enter on each prop account).', `
         <div class="kpi-body"><div class="big ${propFees ? 'loss' : ''}">${props.length ? (propFees ? `−$${propFees.toLocaleString('en-US')}` : '$0') : '—'}</div></div>
         <div class="kpi-sub">Money spent on challenges · ${props.length} prop account${props.length === 1 ? '' : 's'}</div>`)}
-      ${tile('Net cash', 'Live P&amp;L minus prop fees. What you really made or lost with your own money. Prop profits are not counted until you get a payout.', `
+      ${tile('Net cash', 'Live P&L minus prop fees. What you really made or lost with your own money. Prop profits are not counted until you get a payout.', `
         <div class="kpi-body"><div class="big ${tone(realNet)}">${personal.length || props.length ? fmtUsd(realNet) || '$0' : '—'}</div></div>
         <div class="kpi-sub">Live P&amp;L − prop fees</div>`)}
       ${tile('Demo P&amp;L', 'Practice result from Personal · Demo accounts. Not real money, so it is never added to Net cash.', `
@@ -1642,7 +1643,7 @@ function calGridHTML({ weeks, monthName }) {
   <div class="cal" role="grid" aria-label="${monthName}">
       <div class="cal-row cal-head" role="row">
         ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => `<div role="columnheader">${d}</div>`).join('')}
-        <div role="columnheader" class="cal-week-col">Week</div>
+        <div role="columnheader" class="cal-week-col">Weekly</div>
       </div>
       ${weeks.map((w, i) => `
         <div class="cal-row" role="row">
@@ -1661,10 +1662,10 @@ function calGridHTML({ weeks, monthName }) {
               </div>`;
             }
             return `<button type="button" role="gridcell" class="cal-day ${d.inMonth ? '' : 'out'} ${d.weekend ? 'weekend' : ''} ${statTone(st)} ${d.key === today ? 'today' : ''} ${d.key === calSelected ? 'selected' : ''}"
-              data-day="${d.key}" ${st.n ? 'draggable="true" title="Drag onto another day to move these trades"' : ''} aria-label="${d.key}${st.n ? `, ${st.n} trades` : ''}${notes[d.key] ? ', has a note' : ''}">
+              data-day="${d.key}" ${st.n ? 'draggable="true" title="Drag onto another day to move these trades"' : ''} aria-label="${d.key}${st.n ? `, ${st.n} trade${st.n === 1 ? '' : 's'}` : ''}${notes[d.key] ? ', has a note' : ''}">
               <span class="cal-num">${d.day}${notes[d.key] ? `<i class="cal-note" title="Has a note">${ICON.note}</i>` : ''}</span>${statLines(st)}</button>`;
           }).join('')}
-          <div class="cal-week ${statTone(w.stat)}" role="gridcell"><span class="cal-num">Week ${i + 1}</span>${w.stat.n ? statLines(w.stat) : '<small class="cal-dash">—</small>'}</div>
+          <div class="cal-week ${statTone(w.stat)}" role="gridcell"><span class="cal-num">Week ${i + 1}</span>${w.stat.n ? statLines(w.stat) : '<small>—</small>'}</div>
         </div>`).join('')}
     </div>`;
 }

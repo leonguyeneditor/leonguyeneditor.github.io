@@ -351,15 +351,16 @@ code { font-size: 12px; padding: 2px 6px; border-radius: 4px; background: var(--
 .cal-day.loss, .cal-week.loss { background: rgba(229, 72, 77, 0.10); }
 .cal-day.win b, .cal-week.win b { color: var(--accent-text); }
 .cal-day.loss b, .cal-week.loss b { color: var(--loss-pill); }
-/* 14/11: cột Week nổi bật : vạch dọc đậm tách cột, vạch màu 3px bên trái (xanh lời / đỏ lỗ), số tiền 24px */
+/* 14/11: cột Weekly nổi bật bằng MÀU, cỡ chữ giữ y như ô ngày.
+   Vạch dọc tách cột + nền cột khác ô ngày + số tiền tuần nằm trong nhãn màu (xanh lời / đỏ lỗ). */
 .cal-week, .cal-head .cal-week-col { border-left: 2px solid color-mix(in srgb, var(--muted) 45%, transparent); }
-.cal-week { position: relative; justify-content: flex-start; }
-.cal-week .cal-num { text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
-.cal-head .cal-week-col { color: var(--text); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
-.cal-week b { font-size: 24px; line-height: 1.15; font-weight: 700; }
-.cal-week.win { background: rgba(20, 184, 166, 0.18); box-shadow: inset 3px 0 0 var(--accent); }
-.cal-week.loss { background: rgba(229, 72, 77, 0.18); box-shadow: inset 3px 0 0 var(--loss-pill); }
-.cal-week .cal-dash { font-size: 18px; }
+.cal-week { background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.cal-head .cal-week-col { color: var(--text); font-weight: 600; }
+.cal-week .cal-num { color: var(--text); font-weight: 600; }
+.cal-week b { width: fit-content; padding: 1px 8px; border-radius: 6px; }
+.cal-week.win, .cal-week.loss { background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.cal-week.win b { background: var(--accent); color: var(--on-accent); }
+.cal-week.loss b { background: var(--loss-pill); color: #fff; }
 /* Donut */
 .donut-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; margin-top: 18px; }
 .donut { width: 120px; height: 120px; flex: none; }

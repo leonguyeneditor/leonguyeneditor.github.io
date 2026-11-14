@@ -106,6 +106,8 @@
     ['Last trade:', 'Lệnh gần nhất:', 'Última operación:', 'Última operação:', 'Transaksi terakhir:'],
     // Dashboard
     ['Week', 'Tuần', 'Semana', 'Semana', 'Minggu'],
+    ['Weekly', 'Theo tuần', 'Semanal', 'Semanal', 'Mingguan'],
+    ['Live P&L minus prop fees. What you really made or lost with your own money. Prop profits are not counted until you get a payout.', 'P&L Live trừ phí prop. Số tiền bạn thật sự lời hoặc lỗ bằng tiền của mình. Lợi nhuận prop chưa tính cho tới khi được rút (payout).', 'P&L Live menos las tarifas prop. Lo que de verdad ganaste o perdiste con tu propio dinero. Las ganancias prop no cuentan hasta que cobras un payout.', 'P&L Live menos as taxas prop. O que você realmente ganhou ou perdeu com seu próprio dinheiro. Lucros prop só contam depois do payout.', 'P&L Live dikurangi biaya prop. Uang yang benar-benar kamu dapat atau hilang dari uangmu sendiri. Profit prop tidak dihitung sampai kamu dapat payout.'],
     ['Month', 'Tháng', 'Mes', 'Mês', 'Bulan'],
     ['All', 'Tất cả', 'Todo', 'Tudo', 'Semua'],
     ['All time', 'Toàn bộ', 'Todo el tiempo', 'Todo o período', 'Sepanjang waktu'],
