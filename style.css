@@ -15,9 +15,10 @@
   --muted: rgba(var(--ink), 0.6);
   --line: rgba(var(--ink), 0.145);  /* đường kẻ: đậm hơn ~20% (09/11) */
   --surface: rgba(var(--ink), 0.04);
-  --font-head: 'Montserrat', system-ui, sans-serif;
-  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-num: 'IBM Plex Sans', system-ui, sans-serif;
+  /* 14/11: web chỉ 2 font: Archivo (tiêu đề, logo) + Geist (chữ giao diện, số) */
+  --font-head: 'Archivo', system-ui, sans-serif;
+  --font-body: 'Geist', system-ui, sans-serif;
+  --font-num: 'Geist', system-ui, sans-serif;
   --radius: 10px;
   color-scheme: dark;
 }
@@ -70,7 +71,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   background: rgba(var(--ink), 0.015);
 }
 .brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-head); letter-spacing: 0.04em; }
-.brand b { font-weight: 800; font-size: 16px; }
+.brand b { font-weight: 700; font-size: 15px; font-stretch: 125%; font-variation-settings: "wdth" 125; }
 .brand b span { color: var(--accent-text); }
 .brand small { display: block; font: 400 12px var(--font-body); letter-spacing: 0; color: var(--muted); }
 .brand-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); position: relative; }
@@ -517,12 +518,13 @@ select option { background: var(--field); color: var(--text); }
   .layout { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .topbar { padding: 12px 16px; }
-  .brand-mobile { display: flex; }
-  .scope { margin-left: auto; max-width: 150px; }
+  .brand-mobile { display: flex; flex: none; }
+  .brand-mobile b { white-space: nowrap; font-size: 14px; letter-spacing: 0.02em; font-stretch: 100%; font-variation-settings: "wdth" 100; }
+  .scope { margin-left: auto; max-width: 150px; min-width: 0; }
   .topbar .btn-plus { margin-left: 8px !important; }
-  .topbar .settings-mobile { display: inline-flex; }
+  .topbar .settings-mobile { display: inline-flex; flex: none; }
   .crumbs, .search { display: none; }
-  .topbar .btn-plus { display: inline-flex; margin-left: auto; width: 40px; height: 40px; padding: 0; font-size: 22px; }
+  .topbar .btn-plus { display: inline-flex; flex: none; margin-left: auto; width: 40px; height: 40px; padding: 0; font-size: 22px; }
   .streak { padding: 12px 16px 0; }
   .stop-banner { margin: 12px 16px 0; }
   main { padding: 20px 16px 96px; }
@@ -1295,7 +1297,7 @@ dialog.img-view::backdrop { background: rgba(0, 0, 0, 0.75); }
 .img-view .iv-tip { margin: 0; padding: 0 14px 10px; font-size: 12px; }
 .shot img { cursor: zoom-in; }
 .mc-no-plain { display: inline-flex; align-items: center; gap: 3px; color: var(--loss-text); } .mc-no-plain svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; }
-/* Setup theo quy trình trading + trang Review (10/11) */
+/* Setup theo + trang Review (10/11) */
 .setup-flow { margin: -4px 0 0; font-size: 12px; letter-spacing: .02em; }
 .pda-tf { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 .pda-tf .hint { font-size: 12px; }
@@ -1514,7 +1516,7 @@ dialog.img-view.drawing .iv-body { cursor: default; }
 .iv-textctl select { width: 64px; height: 34px; padding: 0 6px; }
 .iv-fmt { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 15px; cursor: pointer; }
 .iv-fmt.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.anno-text input { font-family: 'IBM Plex Sans', system-ui, sans-serif; font-weight: 400; }
+.anno-text input { font-family: 'Geist', system-ui, sans-serif; font-weight: 400; }
 .iv-pop { width: 264px; } .iv-presets { gap: 8px; }
 /* Chọn / sửa từng nét (10/11) */
 .anno-svg .mk.sel { filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 4px #14B8A6); }
@@ -1524,7 +1526,7 @@ dialog.img-view.drawing .anno-stage[data-mode="select"] text.mk, dialog.img-view
 .iv-editing { font: 600 11px var(--font-body); letter-spacing: .04em; text-transform: uppercase; color: var(--accent-text); }
 .iv-editing[hidden] { display: none; }
 /* Ô gõ chữ: nền trong suốt, chỉ một viền mảnh mờ */
-.anno-text input { width: auto; height: auto; min-width: 60px; padding: 2px 6px; background: transparent !important; border: 1px dashed color-mix(in srgb, var(--tc, #14B8A6) 55%, transparent); border-radius: 4px; box-shadow: none; line-height: 1.2; font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+.anno-text input { width: auto; height: auto; min-width: 60px; padding: 2px 6px; background: transparent !important; border: 1px dashed color-mix(in srgb, var(--tc, #14B8A6) 55%, transparent); border-radius: 4px; box-shadow: none; line-height: 1.2; font-family: 'Geist', system-ui, sans-serif; }
 .anno-text input:focus { outline: none; border-color: color-mix(in srgb, var(--tc, #14B8A6) 80%, transparent); }
 .anno-text input::placeholder { color: inherit; opacity: .45; }
 .anno-text { transform: translate(-7px, -50%); }

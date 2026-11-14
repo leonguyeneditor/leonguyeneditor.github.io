@@ -2923,7 +2923,7 @@ function marksSVG(list, W, H, opts = {}) {
     }
     if (m.t === 'text') {
       const fs = ((m.z ?? 20) * H) / 700;
-      return `<text${at} x="${m.x * W}" y="${m.y * H}" stroke="none" fill="${col}" fill-opacity="${op}" font-size="${fs}" font-weight="${m.b ? 700 : 400}" font-style="${m.i ? 'italic' : 'normal'}" font-family="IBM Plex Sans, system-ui, sans-serif" dominant-baseline="middle">${esc(m.s)}</text>`;
+      return `<text${at} x="${m.x * W}" y="${m.y * H}" stroke="none" fill="${col}" fill-opacity="${op}" font-size="${fs}" font-weight="${m.b ? 700 : 400}" font-style="${m.i ? 'italic' : 'normal'}" font-family="Geist, system-ui, sans-serif" dominant-baseline="middle">${esc(m.s)}</text>`;
     }
     return '';
   };
