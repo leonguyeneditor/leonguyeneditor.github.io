@@ -3738,7 +3738,6 @@ function nbEditorHTML() {
       <label class="nb-label" for="nb-day-text">Note</label>
       <textarea id="nb-day-text" class="nb-day-text" rows="10" maxlength="2000" placeholder="How did the day go? Market, mood, why you sat out…">${esc(notes[d] || '')}</textarea>
       <div class="nb-actions">
-        <a class="btn btn-soft" href="#/daily">Open Daily Journal</a>
         ${notes[d] ? '<button type="button" class="btn btn-soft btn-danger" data-nb-delete>Delete note</button>' : ''}
       </div>`;
   }

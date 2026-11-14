@@ -881,7 +881,7 @@ button.pt-cell:hover, button.pt-cell:focus-visible { outline: 2px solid var(--mu
 @media (max-width: 700px) { .check-stats { grid-template-columns: 1fr 1fr; } .check-foot { flex-wrap: wrap; } }
 @media (max-width: 900px) {
   /* 6 mục như menu bên máy tính: Dashboard, Daily, Trades, Models, Accounts, Notebook */
-  .bottom-nav { grid-template-columns: repeat(7, minmax(0, 1fr)); padding-left: 4px; padding-right: 4px; }
+  .bottom-nav { grid-template-columns: repeat(6, minmax(0, 1fr)); padding-left: 4px; padding-right: 4px; }
   .bottom-nav a { font-size: 10px; gap: 3px; min-width: 0; text-align: center; justify-content: flex-start; padding-top: 4px; line-height: 1.15; }
 }
 
