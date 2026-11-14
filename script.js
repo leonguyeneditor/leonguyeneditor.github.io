@@ -488,49 +488,34 @@ function planTrackerHTML() {
     </div>`;
 }
 
-// ---------- Dải thẻ tài khoản đầu Dashboard (14/11): nhìn sơ qua mọi tài khoản, bấm để chuyển ----------
-function accStripHTML() {
-  const list = accounts.filter((a) => a.status === 'active' || allTrades.some((t) => t.account_id === a.id));
-  const loose = allTrades.filter((t) => t.account_id == null).length;
-  const nag = loose ? `<p class="notice acc-nag">${ICON.alert}<span>${loose} trade${loose === 1 ? ' has' : 's have'} no account, so ${loose === 1 ? 'it is' : 'they are'} not counted anywhere.</span><a class="link" href="#/trades" data-fix-loose>Fix</a></p>` : '';
-  if (!list.length) return nag;
-  const money = (v) => `$${Math.round(v).toLocaleString('en-US')}`;
-  const inScope = (a) => (scope === `acc:${a.id}` || (scope === 'real' && a.type === 'personal') || (scope === 'demo' && a.type === 'demo') || (scope === 'prop' && isProp(a)));
-  return `${nag}<div class="acc-strip" role="list">${list.map((a) => {
-    const rows = allTrades.filter((t) => t.account_id === a.id);
-    const pnl = rows.reduce((sum, t) => sum + (t.pnl_usd || 0), 0);
-    const n = rows.reduce((sum, t) => sum + (t.quick ? (t.trade_count || 1) : 1), 0);
-    const bal = a.starting_balance != null ? money(a.starting_balance + pnl) : '—';
-    return `<button type="button" role="listitem" class="acc-chip ${inScope(a) ? 'on' : ''}" data-acc-pick="${a.id}" aria-pressed="${inScope(a)}">
-      <span class="acc-chip-top"><b>${esc(a.name)}</b><small>${ACC_TYPES[a.type]}</small></span>
-      <span class="acc-chip-bal">${bal}</span>
-      <span class="acc-chip-pnl"><span class="${pnl > 0 ? 'win' : pnl < 0 ? 'loss' : ''}">${fmtUsd(pnl) || '$0'}</span> · ${n} trade${n === 1 ? '' : 's'}</span>
-    </button>`;
-  }).join('')}</div>`;
-}
-
 // ---------- Account balance: số dư = số dư ban đầu + tổng P&L của tài khoản ----------
 function balanceHTML() {
-  const inScope = accounts.filter((a) => (scope === 'all' ? true
-    : scope === 'real' ? a.type === 'personal'
-      : scope === 'demo' ? a.type === 'demo'
-      : scope === 'prop' ? isProp(a) : `acc:${a.id}` === scope));
-  const withStart = inScope.filter((a) => a.starting_balance != null);
-  if (!withStart.length) {
+  // 14/11 (chủ dự án): ô này liệt kê MỌI tài khoản (đang mở hoặc có lệnh), dòng đang xem sáng viền; bấm 1 dòng = chuyển sang tài khoản đó.
+  // Số to = số dư của tài khoản đang xem (hoặc cộng các tài khoản trong nhóm Live/Demo/Prop đang chọn).
+  const list = accounts.filter((a) => a.status === 'active' || allTrades.some((t) => t.account_id === a.id));
+  const loose = allTrades.filter((t) => t.account_id == null).length;
+  const nag = loose ? `<p class="bal-nag">${ICON.alert}<span>${loose} trade${loose === 1 ? ' has' : 's have'} no account, so ${loose === 1 ? 'it is' : 'they are'} not counted anywhere.</span><a class="link" href="#/trades" data-fix-loose>Fix</a></p>` : '';
+  if (!list.length) {
     return `<div class="tile-empty">
-      <p>${accounts.length ? 'Add a starting balance to an account to see it here.' : 'No accounts yet.'}</p>
-      <a class="btn btn-soft" href="#/accounts">${accounts.length ? 'Open Accounts' : 'Add an account'}</a>
-    </div>`;
+      <p>No accounts yet.</p>
+      <a class="btn btn-soft" href="#/accounts">Add an account</a>
+    </div>${nag}`;
   }
-  const rows = withStart.map((a) => {
-    const pnl = allTrades.filter((t) => t.account_id === a.id && t.pnl_usd != null).reduce((s, t) => s + t.pnl_usd, 0);
-    return { a, pnl, bal: a.starting_balance + pnl };
+  const inScope = (a) => (scope === `acc:${a.id}` || (scope === 'real' && a.type === 'personal') || (scope === 'demo' && a.type === 'demo') || (scope === 'prop' && isProp(a)));
+  const rows = list.map((a) => {
+    const mine = allTrades.filter((t) => t.account_id === a.id);
+    const pnl = mine.reduce((sum, t) => sum + (t.pnl_usd || 0), 0);
+    const n = mine.reduce((sum, t) => sum + (t.quick ? (t.trade_count || 1) : 1), 0);
+    return { a, pnl, n, bal: a.starting_balance != null ? a.starting_balance + pnl : null };
   });
-  const total = rows.reduce((s, r) => s + r.bal, 0);
-  const money = (v) => `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
-  return `<div class="bal-total">${money(total)}</div>
-    <ul class="bal-list">${rows.map((r) => `<li><span>${esc(r.a.name)}<small>${ACC_TYPES[r.a.type]}</small></span>
-      <span class="num"><b>${money(r.bal)}</b><small class="${r.pnl > 0 ? 'win' : r.pnl < 0 ? 'loss' : ''}">${fmtUsd(r.pnl) || '$0'}</small></span></li>`).join('')}</ul>`;
+  const money = (v) => `$${Math.round(v).toLocaleString('en-US')}`;
+  const cur = rows.filter((r) => inScope(r.a) && r.bal != null);
+  const big = cur.length ? money(cur.reduce((sum, r) => sum + r.bal, 0)) : '—';
+  return `<div class="bal-total">${big}</div>
+    <ul class="bal-list">${rows.map((r) => `<li><button type="button" class="bal-row ${inScope(r.a) ? 'on' : ''}" data-acc-pick="${r.a.id}" aria-pressed="${inScope(r.a)}" title="Show ${esc(r.a.name)}">
+      <span>${esc(r.a.name)}<small>${ACC_TYPES[r.a.type]} · ${r.n} trade${r.n === 1 ? '' : 's'}</small></span>
+      <span class="num"><b>${r.bal != null ? money(r.bal) : '—'}</b><small class="${r.pnl > 0 ? 'win' : r.pnl < 0 ? 'loss' : ''}">${fmtUsd(r.pnl) || '$0'}</small></span></button></li>`).join('')}</ul>
+    ${list.some((a) => a.starting_balance == null) ? '<p class="hint bal-hint">— = no starting balance yet. Add it in Accounts.</p>' : ''}${nag}`;
 }
 
 // ---------- Nhập nhanh trên lịch: lười thêm lệnh thì chỉ gõ số tiền hoặc R của ngày ----------
@@ -857,7 +842,7 @@ function renderDashboard() {
         </div>
       </div>
     </div>
-    ${accStripHTML()}
+
 
     <div class="kpi-row">
       ${tile(`Net P&amp;L <span class="count" title="Closed trades">${countTrades(closed)}</span>`, `Net P&L = everything you made minus everything you lost (${periodName}).\nExample: +$334, +$60 and −$154 → +$240.\nThe small number next to the title is how many trades.`, `

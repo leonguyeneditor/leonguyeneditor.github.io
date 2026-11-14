@@ -108,6 +108,7 @@
     ['Week', 'Tuần', 'Semana', 'Semana', 'Minggu'],
     ['Weekly', 'Theo tuần', 'Semanal', 'Semanal', 'Mingguan'],
     ['No account', 'Không có tài khoản', 'Sin cuenta', 'Sem conta', 'Tanpa akun'],
+    ['— = no starting balance yet. Add it in Accounts.', '— = chưa nhập số dư ban đầu. Thêm trong Tài khoản.', '— = aún sin saldo inicial. Añádelo en Cuentas.', '— = ainda sem saldo inicial. Adicione em Contas.', '— = belum ada saldo awal. Tambahkan di Akun.'],
     ['No accounts yet', 'Chưa có tài khoản', 'Aún no hay cuentas', 'Ainda sem contas', 'Belum ada akun'],
     ['Fix', 'Sửa', 'Arreglar', 'Corrigir', 'Perbaiki'],
     ['Year', 'Năm', 'Año', 'Ano', 'Tahun'],
