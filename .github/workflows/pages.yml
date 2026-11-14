@@ -1,4 +1,4 @@
-# Đăng trang lên GitHub Pages. Push nhiều lần liên tiếp thì lần cũ tự bị huỷ (không báo lỗi), chỉ lần mới nhất được đăng.
+# Đăng trang lên GitHub Pages. Push nhiều lần liên tiếp thì các lần sau XẾP HÀNG chờ, không huỷ lần đang đăng (huỷ giữa chừng làm GitHub kẹt "in progress deployment").
 name: Deploy site
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   id-token: write
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   deploy:
     runs-on: ubuntu-latest
