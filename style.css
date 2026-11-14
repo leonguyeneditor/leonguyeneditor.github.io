@@ -702,17 +702,23 @@ button.pt-cell:hover, button.pt-cell:focus-visible { outline: 2px solid var(--mu
 .cal-tile-head h3 { font: 700 22px var(--font-head); }
 .cal-tile-head .hint b.win { color: var(--accent-text); }
 .cal-tile-head .hint b.loss { color: var(--loss-text); }
-/* 14/11: đầu lịch kiểu mới: ‹ Tháng › ‹ Năm › + Today + Month / Year */
-.cal-tile-head .cal-nav { flex-wrap: wrap; gap: 10px 14px; }
+/* 14/11: đầu lịch một hàng: trái ‹ Tháng › ‹ Năm ›, phải Today + Month / Year (mọi nút cao 34px) */
+.cal-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.cal-bar-left, .cal-bar-right { display: flex; align-items: center; gap: 8px; }
+.cal-bar-left { gap: 20px; }
 .cal-step { display: inline-flex; align-items: center; gap: 2px; }
-.cal-arrow { width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
+.cal-arrow { width: 30px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
 .cal-arrow:hover { background: var(--line); color: var(--text); }
-.cal-step-label { font: 600 16px var(--font-head); min-width: 104px; text-align: center; }
-.cal-step-label.year { min-width: 52px; font-family: var(--font-num); }
+.cal-step-label { font: 600 18px var(--font-head); min-width: 104px; text-align: center; }
+.cal-step-label.year { min-width: 52px; }
+.cal-today { height: 34px; }
 .cal-view { padding: 2px; height: 34px; margin: 0; grid-template-columns: repeat(2, auto); gap: 2px; }
 .cal-view button { min-width: 60px; height: 28px; padding: 0 12px; font-size: 13px; border-radius: 7px; }
-.cal-nav [data-shift="0"] { height: 34px; }
-.cal-arrow { width: 30px; height: 34px; }
+@media (max-width: 600px) {
+  .cal-bar-left { gap: 6px; }
+  .cal-step-label { font-size: 15px; min-width: 86px; }
+  .cal-step-label.year { min-width: 44px; }
+}
 /* Chế độ Year: 12 ô tháng */
 .cal-year { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
 .cal-year .cal-mcell { min-height: 104px; border-bottom: 1px solid var(--line); }

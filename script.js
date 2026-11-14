@@ -889,7 +889,7 @@ function renderDashboard() {
     </div>
 
     <section class="tile cal-tile" id="cal-section">
-      ${calHeadHTML(b)}
+      ${calHeadHTML()}
       ${calView === 'year' ? calYearHTML(calMonth.slice(0, 4)) : calGridHTML(b)}
     </section>
   `;
@@ -1667,24 +1667,21 @@ function buildMonth(month) {
 }
 
 // Đầu lịch (14/11, theo mẫu chủ dự án gửi): ‹ Tháng › ‹ Năm › + Today + Month / Year
-function calHeadHTML(b) {
+function calHeadHTML() {
+  // 14/11 (chủ dự án): bỏ tiêu đề "November 2026" + dòng tổng tháng; một hàng gọn: trái = ‹ Tháng › ‹ Năm ›, phải = Today + Month / Year
   const [yy, mm] = calMonth.split('-').map(Number);
   const loc = window.I18N?.locale || 'en-US';
   const mName = cap1(new Date(Date.UTC(yy, mm - 1, 1)).toLocaleString(loc, { month: 'long', timeZone: 'UTC' }));
   const year = String(yy);
-  const yRows = trades.filter((t) => t.date.slice(0, 4) === year); const ys = dayStats(yRows);
-  const tn = (v) => (v > 0 ? 'win' : v < 0 ? 'loss' : '');
-  const sum = (label, st) => (st.usd != null ? `${label}: <b class="${tn(st.usd)}">${fmtUsd(st.usd) || '$0'}</b>${st.r != null ? ` · ${fmtRv(st.r)}` : ''} · ` : '');
   const isYear = calView === 'year';
-  return `<header class="cal-tile-head">
-        <div>
-          <h3>${isYear ? year : b.monthName}</h3>
-          <p class="hint">${isYear ? `${sum('Year', ys)}Click a month to open it` : `${sum('Month', b.monthStat)}Click any day to see trades, add one or write a note`}</p>
+  const step = (attr, prev, next, label, cls) => `<span class="cal-step"><button type="button" class="cal-arrow" ${attr}="-1" aria-label="${prev}">‹</button><b class="cal-step-label ${cls}">${esc(label)}</b><button type="button" class="cal-arrow" ${attr}="1" aria-label="${next}">›</button></span>`;
+  return `<header class="cal-bar">
+        <div class="cal-bar-left">
+          ${isYear ? '' : step('data-shift', 'Previous month', 'Next month', mName, '')}
+          ${step('data-shift-year', 'Previous year', 'Next year', year, 'year')}
         </div>
-        <div class="cal-nav">
-          ${isYear ? '' : `<span class="cal-step"><button type="button" class="cal-arrow" data-shift="-1" aria-label="Previous month">‹</button><b class="cal-step-label">${esc(mName)}</b><button type="button" class="cal-arrow" data-shift="1" aria-label="Next month">›</button></span>`}
-          <span class="cal-step"><button type="button" class="cal-arrow" data-shift-year="-1" aria-label="Previous year">‹</button><b class="cal-step-label year">${year}</b><button type="button" class="cal-arrow" data-shift-year="1" aria-label="Next year">›</button></span>
-          <button type="button" class="btn btn-soft btn-sm" data-shift="0">Today</button>
+        <div class="cal-bar-right">
+          <button type="button" class="btn btn-soft btn-sm cal-today" data-shift="0">Today</button>
           <div class="segmented cal-view" role="group" aria-label="Calendar view">${[['month', 'Month'], ['year', 'Year']].map(([v, l]) => `<button type="button" data-cal-view="${v}" class="${calView === v ? 'on' : ''}" aria-pressed="${calView === v}">${l}</button>`).join('')}</div>
         </div>
       </header>`;
